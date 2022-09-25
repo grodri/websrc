@@ -1,0 +1,29 @@
+% Stata Tutorial tweaks
+%
+% no figure number in captions
+\usepackage[labelformat=empty]{caption}
+%
+% custom title for tutorial
+\newcommand{\subtitle}{Updated for Version 17}
+\usepackage{titling}
+\pretitle{\begin{center}\Huge\sffamily\bfseries}
+\posttitle{\\ \vspace{6pt}\large\subtitle\\ %
+\url{https://data.princeton.edu/stata}\end{center}}
+% 
+% author with affiliation
+\preauthor{\vspace{6pt}\begin{center}}
+\postauthor{\\ Princeton University\end{center}}
+\predate{\begin{center}}
+\postdate{\end{center}}
+% 
+% sections in sans serif
+\usepackage{sectsty}
+\allsectionsfont{\sffamily}
+%
+% indent verbatim like stlog
+\usepackage{fancyvrb}
+\fvset{fontsize=\small}
+\RecustomVerbatimEnvironment{verbatim}{Verbatim}{xleftmargin=1cm}
+%
+% avoid figure on its own page
+\renewcommand{\floatpagefraction}{.8}

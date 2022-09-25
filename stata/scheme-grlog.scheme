@@ -1,0 +1,20 @@
+* gr log style
+
+
+#include s2color
+color background  white
+color heading    "51 102 204"
+color subheading "51 102 204"
+
+
+color box              "250 252 254"
+color textbox          "250 252 254"
+color mat_label_box    "250 252 254"
+
+color text_option_fill   "250 252 254"
+color filled             "250 252 254"
+color bylabel_outline    "250 252 254"
+color grid         "250 252 254"
+color major_grid   "250 252 254"
+color pboxlabelfill  "250 252 254"
+color plabelfill     "250 252 254"
