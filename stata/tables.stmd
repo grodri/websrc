@@ -2,174 +2,90 @@
 3 Stata Tables {#s3 .first}
 ===============
 
-Stata 17 introduced a new system for producing highly-customizable
-tables. At the heart of the system is a new `collect` command that 
-can be used to collect the results left behind by various Stata
-commands and present then in tables. It also introduced a new `table` 
-command that simplifies the process for many kinds of tabulations, 
-and later an `etable` command that specializes in tables of estimates. 
-In this tutorial we will touch briefly on all three commands.
-Stata 16 and earlier had a different `table` command with its own 
-syntax and features, still available under version control.
+Stata 17 introduced a new system for producing highly-customizable tables. At the heart of the system is a new `collect` command that can be used to collect the results left behind by various Stata commands and present then in tables. It also introduced a new `table` command that simplifies the process for many kinds of tabulations, and later an `etable` command that specializes in tables of estimates. In this tutorial we will touch briefly on all three commands. Stata 16 and earlier had a different `table` command with its own syntax and features, still available under version control.
 
 ## 3.1 Frequency Tables
 
-Frequency tables include marginals or one-way distributions, 
-crosstabs or two-way tabulations, and multi-way tables involving
-three or more variables.
+Frequency tables include marginals or one-way distributions, crosstabs or two-way tabulations, and multi-way tables involving three or more variables.
 
 ### 3.1.1 One-Way Tables
 
-The simplest table we can consider is just a one-way frequency
-table, where we often want to show percents as well as counts.
-The example below uses an extract from the 1975 Dominican
-Republic Fertility Survey and tabulates the distribution of
-respondent's education
+The simplest table we can consider is just a one-way frequency table, where we often want to show percents as well as counts. The example below uses an extract from the 1975 Dominican Republic Fertility Survey and tabulates the distribution of respondent's education
 
 	use https://data.princeton.edu/stata/drsr03x, clear
 	table educg, statistic(frequency) statistic(percent)
 
-If you just type `table educg` you will see the frequencies, which 
-is the default. If you want percents instead you use the option 
-`statistic(percent)`. If you want both frequencies and percents 
-you use the `statistic` option twice, as we did here. 
+If you just type `table educg` you will see the frequencies, which is the default. If you want percents instead you use the option `statistic(percent)`. If you want both frequencies and percents you use the `statistic` option twice, as we did here. 
 
-You could, of course, obtain the same results using `tabulate educg`,
-which also gives you cumulative frequencies. However, the new `table` 
-command is much more powerful, letting you customize the table and 
-export the result in various formats. 
+You could, of course, obtain the same results using `tabulate educg`, which also gives you cumulative frequencies. However, the new `table` command is much more powerful, letting you customize the table and export the result in various formats. 
 
-To give you just one example, suppose you wanted to label the columns 
-`N` and `%`. Although we view this as a one-way table, it has 
-two *dimensions*, the education groups that go in the rows, and the two
-results that go in the columns, a dimension Stata calls `result` with
-*levels* `frequency` and `percent`. We  can use  `collect` to replace 
-the labels of the levels of result and then preview our change. 
-Try the next two commands
+To give you just one example, suppose you wanted to label the columns `N` and `%`. Although we view this as a one-way table, it has two *dimensions*, the education groups that go in the rows, and the two results that go in the columns, a dimension Stata calls `result` with *levels* `frequency` and `percent`. We  can use  `collect` to replace the labels of the levels of result and then preview our change. Try the next two commands
  
 ```
 collect label levels result frequency "N" percent "%", modify
 collect preview
 ```
 
-The table above can be transposed, putting the results in the rows
-and the categories of education in the columns using the command
-`collect layout (result) (educg)`. (Alternatively, we could specify
-`table () (educg)` from the outset.)
+The table above can be transposed, putting the results in the rows and the categories of education in the columns using the command `collect layout (result) (educg)`. (Alternatively, we could specify `table () (educg)` from the outset.)
 			
-The `collect` commands act on the current collection, which was produced 
-by the `table` command and is actually called `Table`. We'll see how to
-generate our own collections in Section 3.4.  To learn more about one-way 
-tables type `help table oneway`.
+The `collect` commands act on the current collection, which was produced by the `table` command and is actually called `Table`. We'll see how to generate our own collections in Section 3.4.  To learn more about one-way tables type `help table oneway`.
 
 ### 3.1.2 Two-Way Tables
 
-To obtain a two-way table we specify a row and a column variable.
-The example below looks at contraceptive use by education groups.
+To obtain a two-way table we specify a row and a column variable. The example below looks at contraceptive use by education groups.
 
 	table educg cuse, statistic(percent, across(cuse)) 		
 
-If you just type `table educg cuse` you will get the frequencies. 
-Here we are more interested in row percents, which we obtain using 
-the `percent` statistic with the `across(cuse)` option. 
-We see that use of both efficient and inefficient methods increases 
-substantially with educational level. 
+If you just type `table educg cuse` you will get the frequencies. Here we are more interested in row percents, which we obtain using the `percent` statistic with the `across(cuse)` option. We see that use of both efficient and inefficient methods increases substantially with educational level. 
 
-This survey defined contraceptive use only for currently married
-fecund women, and `table` by default excludes missing values.
-To include missing values use the `missing` option. To see the
-frequencies add the `statistic(frequency)` option.
-To learn more about two-way tables type `help table twoway`.
-
+This survey defined contraceptive use only for currently married fecund women, and `table` by default excludes missing values. To include missing values use the `missing` option. To see the frequencies add the `statistic(frequency)` option. To learn more about two-way tables type `help table twoway`.
 
 ### 3.1.3 Multi-way Tables
 
-It is also possible to do three-way tables, which is as far as we'll
-go because tables get rather unwieldy as the number of dimensions increases.
-Let us look at contraceptive use by area and education:
+It is also possible to do three-way tables, which is as far as we'll go because tables get rather unwieldy as the number of dimensions increases. Let us look at contraceptive use by area and education:
 
 	table (area educg) (cuse), statistic(percent, across(cuse))
 
-This command combines categories of residence and education in the
-rows and shows contraceptive use in the columns. I used parentheses for
-clarity, but they can be omitted. We see that use of contraception
-increases with education in both areas, and is generally much higher
-in urban than rural areas. 
+This command combines categories of residence and education in the rows and shows contraceptive use in the columns. I used parentheses for clarity, but they can be omitted. We see that use of contraception increases with education in both areas, and is generally much higher in urban than rural areas. 
 
-We could also produce separate tables for urban and rural areas.
-Try the following command
+We could also produce separate tables for urban and rural areas. Try the following command
 
 ```
 table (educg) (cuse) (area), statistic(percent, across(cuse))
 ```
 
-Here parentheses are required, and the order is rows, columns, panels,
-so `area` comes last.  The results are the same as before, but to 
-compare  urban and rural you have to look across panels.  
+Here parentheses are required, and the order is rows, columns, panels, so `area` comes last.  The results are the same as before, but to compare  urban and rural you have to look across panels.  
 
-You can supress marginal totals using the `nototals` option, or
-specify which margins to include with `totals()`, using `#` to
-interact variables. For example we could supress the total panel
-but keep the row totals, so it is clear that the percents add to 
-100% in each row, by using `totals(educg#area)`. 
-To learn more type `help table multiway`.
+You can supress marginal totals using the `nototals` option, or specify which margins to include with `totals()`, using `#` to interact variables. For example we could supress the total panel but keep the row totals, so it is clear that the percents add to 100% in each row, by using `totals(educg#area)`. To learn more type `help table multiway`.
 
 ## 3.2 Tables of Statistics
 
-These are just like the frequency tables we have seen, except that 
-the cells show summary statistics of yet another variable. 
-The table can have rows, columns and panels, each with one or
-more variables. We illustrate with two classification variables.
+These are just like the frequency tables we have seen, except that the cells show summary statistics of yet another variable. The table can have rows, columns and panels, each with one or more variables. We illustrate with two classification variables.
 
 ### 3.2.1 A Two-Way Table of Statistics
 
-Here is a table showing the mean number of years of education 
-by age groups and area of residence.
+Here is a table showing the mean number of years of education by age groups and area of residence.
 
-	table ageg area, statistic(mean educ) nformat(%5.2f)	
+	table ageg area, statistic(mean educ) nformat(%5.2f)
 
-We use the `nformat` option to set the format for numeric output, 
-so we get just two decimal points. We notice that younger women 
-have achieved more education than their older counterparts in 
-both areas, and that average education is higher in urban than 
-in rural areas.
+We use the `nformat` option to set the format for numeric output, so we get just two decimal points. We notice that younger women have achieved more education than their older counterparts in both areas, and that average education is higher in urban than in rural areas.
 
-This table could use a title. As it happens the `table` command
-does not have a title option, but there is a `collect title` 
-command that adds a title to the current collection, and a
-`collect preview` commnand to display the collection. Try
+This table could use a title. As it happens the `table` command does not have a title option, but there is a `collect title` command that adds a title to the current collection, and a `collect preview` commnand to display the collection. Try
 
 ```
 collect title "Mean years of education by age and area"
 collect preview
 ```
 
-Alternatively, you could add a note at the foot of the table
-with `collect note "Cells show mean years of education"`.
+Alternatively, you could add a note at the foot of the table with `collect note "Cells show mean years of education"`.
 
-Tables of statistics can include not just means, but many
-other statistics, such as the median, quartiles, standard 
-deviation or variance. For a full list of the statistics 
-available type  `help table_summary##stat`. 
-An interesting "statistic" is `fvproportion`, which gives 
-relative frequencies for a  factor or categorical variable, 
-as shown in the next section.
+Tables of statistics can include not just means, but many other statistics, such as the median, quartiles, standard deviation or variance. For a full list of the statistics available type  `help table_summary##stat`. An interesting "statistic" is `fvproportion`, which gives relative frequencies for a  factor or categorical variable, as shown in the next section.
 
 ### 3.2.2 Descriptive Statistics: Table 1
 
-Research reports often include a table showing descriptive
-statistics for a number of variables, using the mean
-and standard deviation for numeric or continuous variables,
-and relative frequencies for categorical or factor variables,
-frequently within categories of another variable of interest.
-Sometimes this is called "Table 1". The `table` command
-makes it easy to produce this type of table, and even has
-a special style for it.
+Research reports often include a table showing descriptive statistics for a number of variables, using the mean and standard deviation for numeric or continuous variables, and relative frequencies for categorical or factor variables, frequently within categories of another variable of interest. Sometimes this is called "Table 1". The `table` command makes it easy to produce this type of table, and even has a special style for it.
 
-Here is a table showing means and standard deviations for
-age and years of education, our two continuous variables,
-and the percent distribution for contraceptive use, all
-separately for urban and rural areas.
+Here is a table showing means and standard deviations for age and years of education, our two continuous variables, and the percent distribution for contraceptive use, all separately for urban and rural areas.
 
 	table (var) (area) ,  ///    
 		statistic(mean age educ) statistic(sd age educ) ///
@@ -178,79 +94,37 @@ separately for urban and rural areas.
 		sformat("(%s)" sd) sformat("%s%%" fvpercent) ///
 		style(table-1)
 
-We specify the rows using the keyword `var`, which refers to
-the variables in the `statistic` options, and the columns 
-using `area`. We then request two statistics for our
-continuous variables, the `mean` and the `sd`, and
-one for our categorical variable, the `fvpercent`.
-Note that each `statistic` may list more than one variable.
+We specify the rows using the keyword `var`, which refers to the variables in the `statistic` options, and the columns using `area`. We then request two statistics for our continuous variables, the `mean` and the `sd`, and one for our categorical variable, the `fvpercent`. Note that each `statistic` may list more than one variable.
 
-To control the number of decimals printed we use our old friend
-`nformat`. If we wanted just one decimal for all numeric results
-we could say `nformat(%5.1f)`. In this case we want two decimals 
-for mean and standard deviation, but just one for percents, 
-so we use two numeric formats, `nformat(%5.2f mean sd)` to
-target the former and `nformat(%5.1f fvpercent)` for the latter.
+To control the number of decimals printed we use our old friend `nformat`. If we wanted just one decimal for all numeric results we could say `nformat(%5.1f)`. In this case we want two decimals for mean and standard deviation, but just one for percents, so we use two numeric formats, `nformat(%5.2f mean sd)` to target the former and `nformat(%5.1f fvpercent)` for the latter.
 
-To distinguish mean and standard deviations in the output we 
-enclose the latter in parentheses using an `sformat`. Note the 
-addition of `sd`, so this string format applies only to that statistic. 
-Just for fun we add a `%` symbol to the percents using another 
-`sformat`, this time specifying `fvpercent` as the target. 
-(If you are puzzled by the `%s%%` format, note that
-`%s` is the placeholder for the string, and that to append 
-a `%` symbol we need to escape it using `%%`.)
+To distinguish mean and standard deviations in the output we enclose the latter in parentheses using an `sformat`. Note the addition of `sd`, so this string format applies only to that statistic. Just for fun we add a `%` symbol to the percents using another `sformat`, this time specifying `fvpercent` as the target. (If you are puzzled by the `%s%%` format, note that `%s` is the placeholder for the string, and that to append a `%` symbol we need to escape it using `%%`.)
 
-Why two kinds of formats? All numeric output is first converted
-to a string, using an `nformat` if any. Then that string is
-displayed using an `sformat` if any. So a standard deviation
-of 9.4148 becomes "9.41" (using the numeric format `%5.2f`) 
-and is displayed as "(9.41)" (using the string format `(%s)`).
+Why two kinds of formats? All numeric output is first converted to a string, using an `nformat` if any. Then that string is displayed using an `sformat` if any. So a standard deviation of 9.4148 becomes "9.41" (using the numeric format `%5.2f`) and is displayed as "(9.41)" (using the string format `(%s)`).
 
-Finally we use the built-in style `table-1`, which provides
-a more compact layout for the results for factor variables
-and a few other tweaks. Try running the table without this
-option to appreciate what it does. For more information about
-styles type `help Predefined styles`. 
+Finally we use the built-in style `table-1`, which provides a more compact layout for the results for factor variables and a few other tweaks. Try running the table without this option to appreciate what it does. For more information about styles type `help Predefined styles`.
 
-To learn more about the `table` command and its many options, 
-including the `command` option that lets you run any Stata
-command and collect its results, type `help table`.
+To learn more about the `table` command and its many options, including the `command` option that lets you run any Stata command and collect its results, type `help table`.
 
 ## 3.3 Tables of Estimates
 
-We now turn our attention to tables presenting the results of one or more
-estimation commands.  We will use as an example simple linear regression
-with the `regress` command, but the same ideas apply to other models.
-We can collect the results ourselves using `collect` as a prefix of the
-`regress` command, or even the `command` option of `table`, but the new 
-`etable` command makes things easier. 
+We now turn our attention to tables presenting the results of one or more estimation commands.  We will use as an example simple linear regression with the `regress` command, but the same ideas apply to other models. We can collect the results ourselves using `collect` as a prefix of the `regress` command, or even the `command` option of `table`, but the new `etable` command makes things easier. 
 
 ### 3.3.1 A Single Regression
 
-If you type `etable` after a `regress` command you get a table showing
-coefficients with standard errors in parentheses, and the number of
-observations at the bottom.  Let us add just a couple of options.
+If you type `etable` after a `regress` command you get a table showing coefficients with standard errors in parentheses, and the number of observations at the bottom.  Let us add just a couple of options.
 
 	sysuse auto, clear
 	quietly regress mpg i.foreign
 	etable, showstars showstarsnote
 
-So foreign cars travel almost 5 more miles per gallon than domestic cars.
-The option `showstars` shows the usual significance stars, and 
-`showstarsnote` adds an explanatory note. The stars may be customized 
-using the `stars()` option, type `help table##starspec` to see how.
+So foreign cars travel almost 5 more miles per gallon than domestic cars. The option `showstars` shows the usual significance stars, and `showstarsnote` adds an explanatory note. The stars may be customized using the `stars()` option, type `help table##starspec` to see how.
 
 ### 3.3.2 Comparing Two Regressions
 
-To compare two or more regressions all we have to do is save the results of
-each one using `estimates store` (before they are overwriten by the next
-regression) and then pass the list of stored estimates to `etable`.
+To compare two or more regressions all we have to do is save the results of each one using `estimates store` (before they are overwriten by the next regression) and then pass the list of stored estimates to `etable`.
 
-Let us compare the fuel efficiency of foreign and domestic cars before and 
-after adjusting for weight. Our measure of efficiency will be "gallons per 
-100 miles" or `gphm` rather than the usual `mpg`, because it has a more 
-linear relationship with weight. First we run and store the regressions:
+Let us compare the fuel efficiency of foreign and domestic cars before and after adjusting for weight. Our measure of efficiency will be "gallons per 100 miles" or `gphm` rather than the usual `mpg`, because it has a more linear relationship with weight. First we run and store the regressions:
 
 	gen gphm = 100/mpg
 	quietly regress gphm i.foreign
@@ -258,39 +132,21 @@ linear relationship with weight. First we run and store the regressions:
 	quietly regress gphm i.foreign weight
 	estimates store adjusted
 
-Next we build a table passing these estimates. We can get the defaults
-with `etable, estimates(unadjusted adjusted)`, but we will go beyond that.
-Consider the command:
+Next we build a table passing these estimates. We can get the defaults with `etable, estimates(unadjusted adjusted)`, but we will go beyond that. Consider the command:
 
 	etable, estimates(unadjusted adjusted) column(estimates) ///
 		cstat(_r_b) cstat(_r_z, sformat((%s))) ///
 		note(test statistic in parentheses) showstars showstarsnote
 
-The option `column(estimates)` specifies that we want the columns to be
-labeled with the name of the estimates rather than the name of the
-dependent variable, which is the default. 
+The option `column(estimates)` specifies that we want the columns to be labeled with the name of the estimates rather than the name of the dependent variable, which is the default.
 
-The `cstat` option (short for coefficient statistics), lets you select which 
-statistics to display. Type `help etable##cstat` to see a complete list. 
-Here we selected the coefficient (`_r_b`) and the test statistic (`_r_z`).
-To make sure the test statistic is in parentheses we use the `sformat`
-option of `cstat` to specify `(%s)`, where `%s` is a placeholder for
-the string, just as we did earlier in Section 3.2.2. We also
-use the `note` option of `etable` to indicate exactly what's shown.
+The `cstat` option (short for coefficient statistics), lets you select which statistics to display. Type `help etable##cstat` to see a complete list. Here we selected the coefficient (`_r_b`) and the test statistic (`_r_z`). To make sure the test statistic is in parentheses we use the `sformat` option of `cstat` to specify `(%s)`, where `%s` is a placeholder for the string, just as we did earlier in Section 3.2.2. We also use the `note` option of `etable` to indicate exactly what's shown.
 
-There is also a `mstat` option (short for model statistics) that lets
-you select model statistics to display, such as the number of cases,
-R-squared, Akaike's information criterion, and others. 
-Type `help etable##mstat` to see a list. Try adding R-squared
-to the previous table.
+There is also a `mstat` option (short for model statistics) that lets you select model statistics to display, such as the number of cases, R-squared, Akaike's information criterion, and others. Type `help etable##mstat` to see a list. Try adding R-squared to the previous table.
 
 ### 3.3.3 Regressions with Different Outcomes
 
-Our last example compared regressions with the same outcome and different
-predictors. It is also possible to compare regressions with different
-outcomes and the same predictors (or at least some overlap).  The
-table below compares regressions of `weight` and `length` using four
-and three predictors, respectively, with foreign cars as the reference
+Our last example compared regressions with the same outcome and different predictors. It is also possible to compare regressions with different outcomes and the same predictors (or at least some overlap).  The table below compares regressions of `weight` and `length` using four and three predictors, respectively, with foreign cars as the reference
 cell for car origin:
 
 	quietly regress weight ib1.foreign price rep78 headroom
@@ -300,33 +156,15 @@ cell for car origin:
 	etable, estimates(weight length) eqrecode(weight=both length=both) ///
 		mstat(N) mstat(r2) showstars showstarsnote 
 
-The essential new option here is `eqrecode()` which ensures that 
-coefficients for the same predictor with different outcomes	appear 
-in the same row. Try running the command without this option to see
-the default. This option is also essential if you run a multivariate
-regression. At the bottom of the table we listed R-squared for each
-regression, but you already knew how to do that, right? Did you
-notice that to keep the number of observations you have to add `mstat(N)`?
+The essential new option here is `eqrecode()` which ensures that coefficients for the same predictor with different outcomes appear in the same row. Try running the command without this option to see the default. This option is also essential if you run a multivariate regression. At the bottom of the table we listed R-squared for each egression, but you already knew how to do that, right? Did you notice that to keep the number of observations you have to add `mstat(N)`?
 
-The `etable` command creates a collection called `ETable` which becomes
-the current collection and can then be modified and/or exported.
-Type `help etable` to learn more.
+The `etable` command creates a collection called `ETable` which becomes the current collection and can then be modified and/or exported. Type `help etable` to learn more.
 
 ## 3.4 Collection Tables
 
-Let us move now to an example where we will collect the results of
-standard Stata commands ourselves. 
-We want to calculate Tukey's five number summary, namely the 
-minimum, first quartile, median, third quartile and maximum. 
-These statistics are all computed by `summarize` with the `detail` 
-option. We would like to do this for several variables.
+Let us move now to an example where we will collect the results of standard Stata commands ourselves. We want to calculate Tukey's five number summary, namely the minimum, first quartile, median, third quartile and maximum. These statistics are all computed by `summarize` with the `detail` option. We would like to do this for several variables.
 
-The `collect` command can be used as a prefix to gather the results
-stored by a general command in `r()` or by an estimation command in
-`e()`. You can find out exactly what a command has stored by typing
-`return list` after a general command such as `summarize`, or
-typing `ereturn list` after an estimation command. But don't worry,
-`collect` will gather everything. So here is our table:
+The `collect` command can be used as a prefix to gather the results stored by a general command in `r()` or by an estimation command in `e()`. You can find out exactly what a command has stored by typing `return list` after a general command such as `summarize`, or typing `ereturn list` after an estimation command. But don't worry, `collect` will gather everything. So here is our table:
 
 	sysuse auto, clear
 	collect clear
@@ -338,54 +176,23 @@ typing `ereturn list` after an estimation command. But don't worry,
 		min "Min" p25 "Q1" p50 "Md" p75 "Q3" max "Max", modify
 	collect layout (cmdset) (result)
 
-This will require a bit of explanation. 
-We start by clearing the collection system with `collect clear`.
+This will require a bit of explanation. We start by clearing the collection system with `collect clear`.
 
-We then collect the results of `summarize mpg, detail`, which will
-produce the statistics we need, using `quietly` to skip displaying them.
-We also ask the system to tag the results with the name of the variable 
-being summarized, which unfortunately is not stored with the results.
-Fortunately Stata creates a *dimension* called `cmdset` for our commands, 
-which are just numbered 1, 2, and 3. The `tags` option creates a more 
-informative tag, using the name of the variable.
+We then collect the results of `summarize mpg, detail`, which will produce the statistics we need, using `quietly` to skip displaying them. We also ask the system to tag the results with the name of the variable being summarized, which unfortunately is not stored with the results. Fortunately Stata creates a *dimension* called `cmdset` for our commands, which are just numbered 1, 2, and 3. The `tags` option creates a more informative tag, using the name of the variable.
 
-Next we define a style. As it happens, `summarize, detail` produces 19 
-results and we don't want them all, just the five-number summary. The 
-`collect style autolevels result` command sets the levels of `result`
-to the five statistics we want. (Alternatively, you can specify which
-results to collect, type `help collect get` to learn more.)
+Next we define a style. As it happens, `summarize, detail` produces 19 results and we don't want them all, just the five-number summary. The `collect style autolevels result` command sets the levels of `result` to the five statistics we want. (Alternatively, you can specify which results to collect, type `help collect get` to learn more.)
 
-Stata generates labels for practically all the results stored by its 
-commands, for example the label for `p25` is "25th percentile", and by 
-default uses these on the tables. We would like to use shorter labels, 
-in this case "Q1", hence the `collect label levels result` command. 
+Stata generates labels for practically all the results stored by its commands, for example the label for `p25` is "25th percentile", and by default uses these on the tables. We would like to use shorter labels, in this case "Q1", hence the `collect label levels result` command. 
 
-The final step is to specify the layout of the table with `collect layout`, 
-which says we want the `cmdset` with the variable names in the rows, 
-and the `result` with the five-number summaries in the columns. 
-The row and column specifications in `collect layout` must be enclosed 
-in parentheses. 
+The final step is to specify the layout of the table with `collect layout`, which says we want the `cmdset` with the variable names in the rows, and the `result` with the five-number summaries in the columns. The row and column specifications in `collect layout` must be enclosed in parentheses. 
 
-Rather than repeat essentially the same command three times, varying only 
-the name of the variable, we could have used a loop, a concept discussed
-later in Section 5.2 of this tutorial. That would make it easy to
-include many more variables in our table. 
+Rather than repeat essentially the same command three times, varying only the name of the variable, we could have used a loop, a concept discussed later in Section 5.2 of this tutorial. That would make it easy to include many more variables in our table.
 
-It is possible to produce similar results using `table`, as all five
-summaries are in the list of statistics available, but the idea here
-was to collect the results ourselves to give you a sense of the
-power and flexibility of the collection system. 
+It is possible to produce similar results using `table`, as all five summaries are in the list of statistics available, but the idea here was to collect the results ourselves to give you a sense of the power and flexibility of the collection system.
 
 ## 3.5 Customizing Tables
 
-Consider the two-way table in Section 3.1.2, showing contraceptive use by
-education. We would like to show just the row percents, as we did,
-but add a column with the total number of observations in each row.
-One way to do this is to get both the frequencies and percents, and
-then decide exactly what we want to show and how.  We will also 
-modify the header, and remove a vertical border. Try the following 
-commands (you may want to try the first two without `quietly` to see 
-what happens at each step):
+Consider the two-way table in Section 3.1.2, showing contraceptive use by education. We would like to show just the row percents, as we did, but add a column with the total number of observations in each row. One way to do this is to get both the frequencies and percents, and then decide exactly what we want to show and how.  We will also modify the header, and remove a vertical border. Try the following commands (you may want to try the first two without `quietly` to see what happens at each step):
 
 	use https://data.princeton.edu/stata/drsr03x, clear
 	quietly table educg cuse, stat(percent, across(cuse)) stat(frequency)
@@ -395,35 +202,14 @@ what happens at each step):
 	collect style cell border_block, border(right, pattern(nil))
 	collect preview
 
-Ater using `table` to tabulate the data, we use `collect layout` 
-to specify rows with `educg` and columns with the percents for `cuse` 
-(using an interaction between `cuse` and `result[percent]`) 
-and the frequency for the total (interacting `cuse[.m]` with 
-`result[frequency]`). 
+After using `table` to tabulate the data, we use `collect layout` to specify rows with `educg` and columns with the percents for `cuse` (using an interaction between `cuse` and `result[percent]`) and the frequency for the total (interacting `cuse[.m]` with `result[frequency]`).
 
-We have used *dimensions* informally to refer to the rows and columns
-of a table, but the concept of *dimension* here is more general,
-representing all features used to tag the elements of a collection.
-Type `collect dims` to list all dimensions of the current collection. 
-Type `collect levelsof` *`dimname`* to list the levels of a dimension,
-and `collect label list` *`dimname`* to list the labels of the levels.
-This is how I learned that `cuse[.m]` had the totals.
+We have used *dimensions* informally to refer to the rows and columns of a table, but the concept of *dimension* here is more general, representing all features used to tag the elements of a collection. Type `collect dims` to list all dimensions of the current collection. Type `collect levelsof` *`dimname`* to list the levels of a dimension, and `collect label list` *`dimname`* to list the labels of the levels. This is how I learned that `cuse[.m]` had the totals.
 
-Finally we use a couple of `collect style` commands that aim for a
-cleaner look; one to remove the labels of the levels of result from 
-the header, and another to omit the vertical border between the row
-headers and the body of the table. This, by the way, uses yet
-another dimension called `border_block`, used to tag cells in the 
-row and column headers, the top-left corner, and the body of the table
-with the items.  Type `collect levelsof border_block` to list the 
-level names.
+Finally we use a couple of `collect style` commands that aim for a cleaner look; one to remove the labels of the levels of result from the header, and another to omit the vertical border between the row headers and the body of the table. This, by the way, uses yet another dimension called `border_block`, used to tag cells in the row and column headers, the top-left corner, and the body of the table with the items.  Type `collect levelsof border_block` to list the level names.
 
-This example has barely touched the surface of table customization.
-To learn more type `help collect`.
+This example has barely touched the surface of table customization. To learn more type `help collect`.
 
 ## 3.6 Exporting Tables
 
-Tables are displayed on your screen but can also be exported in
-various formats, including HTML, Word documents, Excel documents,
-LaTeX, PDF, plain text, Markdown and even Stata's own SMCL format.
-Type `collect export` to learn more.
+Tables are displayed on your screen but can also be exported in various formats, including HTML, Word documents, Excel documents, LaTeX, PDF, plain text, Markdown and even Stata's own SMCL format. Type `collect export` to learn more.
