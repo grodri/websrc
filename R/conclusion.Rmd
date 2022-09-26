@@ -1,0 +1,61 @@
+
+# 6 Next Steps
+
+These notes have hardly scratched the surface of R, which has many more 
+statistical functions. These include functions to calculate the density, cdf, 
+and inverse cdf of distributions such as chi-squared, t, F, lognormal, logistic 
+and others. 
+
+The `survival` library includes methods for the estimation of survival curves, 
+tests of differences between survival curves, and Cox proportional hazards 
+models. The library `lme4` includes code for fitting generalized linear mixed 
+effect models, including multilevel models. Many new statistical procedures are 
+first made available to the research community in the form of R functions.
+
+To produce really nice graphs consider installing the `ggplot2` package. To 
+draw a plot you specify a data frame, aesthetics that map variables to aspects 
+of the graph, and geometries that specify whether to use points, lines, or 
+other primitives. You fill find more information at 
+<https://ggplot2.tidyverse.org/>
+
+For data management I recommend that you install the `dplyr` package, which 
+includes tools for adding new variables, selecting cases or variables (rows or 
+columns), as well as summarizing and re-arranging your data. Check the overview 
+at <https://dplyr.tidyverse.org/>.
+
+You can also run `install.packages("tidyverse")` to install all the packages in 
+the tidyverse, including `ggplot2` and `dplyr`, as well as 
+`tidyr` (for help tidying data), 
+`readr` (for reading rectangular data like csv files), 
+`purrr` (for an alternative to loops), 
+`tibble` (for tidy data frames),
+`stringr` (for working with strings) and 
+`forcats` (for working with factors). 
+Learn more at <https://www.tidyverse.org/packages/>.
+
+In addition, R is a full-fledged programming language, with a rich complement 
+of mathematical functions, matrix operations and control structures. It is very 
+easy to write your own functions. To learn more about programming R, I 
+recommend @wickham2019's *Advanced R* book. 
+
+R is an interpreted language but it is reasonably fast, particularly if you 
+take advantage of the fact that operations are vectorized, and try to avoid 
+looping. Where efficiency is crucial you can always write a function in a 
+compiled language such as C or Fortran and then call it from R. Some of my 
+work on multilevel generalized linear models used this approach.
+
+Last, but most certainly not least, you will want to learn about dynamic 
+documents using R Markdown. The basic idea here is to combine a narrative 
+written in Markdown with R code, an approach that has excellent support in R 
+Studio. The definite book on the subject is @xieAllaireGrolemund2019. 
+
+This tutorial has been written in R Markdown. You can download the 
+[source code](https://data.princeton.edu/R/introducingR.Rmd) and the 
+[bibliography file](https://data.princeton.edu/R/introducingR.bib). 
+To reproduce the PDF document you also need
+[tweaks.tex](https://data.princeton.edu/R/tweaks.tex).
+To generate an HTML document instead, change the output specification near
+the top of the script.
+ 
+
+# References

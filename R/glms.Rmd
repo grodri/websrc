@@ -1,0 +1,327 @@
+
+# 5 Generalized Linear Models
+
+Generalized linear models are just as easy to fit in R as ordinary linear 
+model. In fact, they require only an additional parameter to specify the 
+variance and link functions.
+
+## 5.1 Variance and Link Families
+
+The basic tool for fitting generalized linear models is the `glm()` function, 
+which has the folllowing general structure:
+
+```{.r}
+> glm(formula, family, data, weights, subset, ...)
+```
+
+where `...` stands for more esoteric options. The only parameter that we have 
+not encountered before is `family`, which is a simple way of specifying a 
+choice of variance and link functions. There are six choices of family:
+
+Family	          Variance          Link
+----------------- ----------------- -----------
+gaussian	        gaussian          identity
+binomial	        binomial	        logit, probit or cloglog
+poisson           poisson	          log, identity or sqrt
+gamma             gamma	            inverse, identity or log
+inverse.gaussian	inverse.gaussian  $1/\mu^2$
+quasi	            user-defined	    user-defined
+
+As can be seen, each of the first five choices has an associated variance 
+function (for binomial, the binomial variance $\mu(1 - \mu)$, and one or more 
+choices of link functions (for binomial, the logit, probit or complementary 
+log-log links).
+
+As long as you want the default link, all you have to specify is the family 
+name. If you want an alternative link, you must add a link argument. For 
+example to do probits you use
+
+```{.r}
+> glm( formula, family = binomial(link = probit))
+```
+
+The last family on the list, `quasi`, is there to allow fitting user-defined 
+models by maximum quasi-likelihood.
+
+## 5.2 Logistic Regression
+
+We will illustrate fitting logistic regression models using the contraceptive 
+use data excerpted below (and shown in full further below):
+
+```{.r}
+  age education wantsMore notUsing using 
+  <25       low       yes       53     6
+  <25       low        no       10     4
+  ... lines omitted ...
+40-49      high        no       12    31
+```
+The data are available from the datasets section of the website for my 
+generalized linear models course. Visit 
+<https://data.princeton.edu/wws509/datasets> to read a short description and 
+follow the link to `cuse.dat`.
+
+Of course the data can be downloaded directly from within R:
+
+```{r}
+cuse = read.table("https://data.princeton.edu/wws509/datasets/cuse.dat", header 
+= TRUE)
+cuse
+```
+
+I specified the `header` parameter as `TRUE`, because otherwise it would not 
+have been obvious that the first line in the file has the variable names. There 
+are no row names specified, so the rows will be numbered from 1 to 16. I also 
+printed the data to make sure we got it alright.
+
+Let us try a simple additive model where contraceptive use depends on age, 
+education and whether or not the woman wants more children:
+
+```{r}
+lrfit = glm( cbind(using, notUsing) ~ age + education + wantsMore, 
+  data = cuse, family = binomial)
+```
+
+There are a few things to explain here. First, the function is `glm()` and I 
+have assigned its value to an object called `lrfit` (for logistic regression 
+fit). The first argument of the function is a model formula, which defines the 
+response and linear predictor.
+
+With binomial data the response can be either a vector or a matrix with two 
+columns.
+
+* If the response is a *vector*, it can be numeric with 0 for failure and 1 for 
+success, or a factor with the first level representing "failure" and all others 
+representing "success". In these cases R generates a vector of ones to 
+represent the binomial denominators.
+
+* Alternatively, the response can be a *matrix* where the first column is the 
+number of "successes" and the second column is the number of "failures". In 
+this case R adds the two columns together to produce the correct binomial 
+denominator.
+
+Because the latter approach is clearly the right one for us, I used the 
+function `cbind()` to create a matrix by binding the column vectors containing 
+the numbers using and not using contraception.
+
+Following the special symbol `~` that separates the response from the 
+predictors, we have a standard Wilkinson-Rogers model formula. In this case we 
+are specifying main effects of `age`, `education` and `wantsMore`. Because all 
+three predictors are categorical variables, they are treated automatically as 
+factors, as you can see by inspecting the results:
+  
+``` {r}
+lrfit
+```
+
+Recall that R sorts the levels of a factor in alphabetical order. Because `<25` 
+comes before `25-29`, `30-39`, and `40-49`, it has been picked as the reference 
+cell for `age`. Similarly, `high` is the reference cell for `education` because 
+high comes alphabetically before `low`! Finally, R picked `no` as the base for 
+`wantsMore`.
+
+If you are unhappy about these choices you can (1) use `relevel()` to change 
+the base category, or (2) define your own indicator variables. I will use the 
+second approach,  defining indicators for women with high education and women 
+who want no more children, both added to the `cuse` data frame:
+
+```{r}
+cuse$noMore = cuse$wantsMore == "no"
+cuse$hiEduc = cuse$education == "high"
+```
+
+Now try the model with these predictors
+
+```{r}
+glm(cbind(using, notUsing) ~ age + hiEduc + noMore, 
+  data = cuse, family = binomial)
+```
+
+
+The residual deviance of 29.92 on 10 d.f. is highly significant:
+
+```{r}
+pchisq(29.92, 10, lower.tail = FALSE)
+```
+
+To obtain a p-value I specified `lower.tail` as `FALSE`. This is more accurate 
+than computing the default lower tail and subtracting from one.
+
+So, we need a better model. One of my favorites for this dataset introduces an 
+interaction between age and wanting no more children,
+which is easily specified
+
+```{r}
+lrfit2 = glm( cbind(using, notUsing) ~ age * noMore + hiEduc , data = cuse, 
+family = binomial)
+lrfit2
+```
+
+Note how R built the interaction terms automatically, and even came up with 
+sensible labels for them. The model's deviance of 12.63 on 7 d.f. is not 
+significant at the conventional five per cent level, so we have no evidence 
+against this model.
+
+To obtain more detailed information about this fit try the `summary()` function:
+
+```{r}
+summary(lrfit2)
+```
+
+R follows the popular custom of flagging significant coefficients with one, two 
+or three stars depending on their p-values. Try `plot(lrfit2)`. You get the 
+same plots as in a linear model, but adapted to a generalized linear model; for 
+example the residuals plotted are deviance residuals (the square root of the 
+contribution of an observation to the deviance, with the same sign as the raw 
+residual).
+
+The functions that can be used to extract results from the fit include
+
+- `residuals()` or `resid()`, for the deviance residuals
+- `fitted()` or `fitted.values()`, for the fitted values (estimated 
+probabilities)
+- `predict()`, for the linear predictor (estimated logits)
+- `coef()` or `coefficients()`, for the coefficients, and
+- `deviance()`, for the deviance.
+
+Some of these functions have optional arguments; for example, you can extract 
+five different types of residuals, called "deviance", "pearson", "response" 
+(defined as response - fitted value), "working" (the working dependent variable 
+in the IRLS algorithm - linear predictor), and "partial" (a matrix of working 
+residuals formed by omitting each term in the model). You specify the one you 
+want using the `type` argument, for example `residuals(lrfit2, type = 
+"pearson")`.
+
+## 5.3 Model Updating
+
+If you want to modify a model you may consider using the special function 
+`update()`. For example to drop the `age:noMore` interaction in our model, one 
+could use
+
+ ```{r}
+ lrfit1 = update(lrfit2, ~ . - age:noMore)
+ ```
+ 
+The first argument is the result of a fit, and the second an updating formula. 
+The tilde `~` separates the response from the predictors, and the dot `.` 
+refers to the right-hand side of the original formula, so here we simply remove 
+`age:noMore`. Alternatively, one can give a new formula as the second argument.
+ 
+The update function may also be used to fit the same model to different 
+datasets, using the argument `data` to specify a new data frame. Another useful 
+argument is `subset`, to fit the model to a different subsample. This function 
+works with linear models as well as generalized linear models.
+
+If you plan to fit a sequence of models you will find the anova function 
+useful. Given a series of nested models, it will calculate the change in 
+deviance between them. Try
+
+```{r}
+anova(lrfit1, lrfit2)
+```
+
+Adding the interaction has reduced the deviance by 17.288 at the expense of 3 
+d.f.
+
+If the argument to `anova()` is a single model, the function will show the 
+change in deviance obtained by adding each of the terms in the order listed in 
+the model formula, just as it did for linear models. Because this requires 
+fitting as many models as there are terms in the formula, the function may take 
+a while to complete its calculations.
+
+The `anova()` function lets you specify an optional test. The usual choices 
+will be "F" for linear models and "Chisq" for generalized linear models. Adding 
+the parameter `test = "Chisq"` adds p-values next to the deviances. In our case
+
+```{r}
+anova(lrfit2, test = "Chisq")
+```
+
+We can see that all terms were highly significant when they were introduced 
+into the model.
+
+## 5.4 Model Selection
+
+A very powerful tool in R is a function for stepwise regression that has three 
+remarkable features:
+
+* It works with generalized linear models, so it will do stepwise logistic 
+regression, or stepwise Poisson regression,
+
+* It understand hierarchical models, so it will only consider adding 
+interactions after including the corresponding main effects in the models, and
+
+* It understands terms involving more than one degree of freedom, so it it will 
+keep together dummy variables representing the effects of a factor.
+
+The basic idea of the procedure is to start from a given model (which could 
+well be the null model) and take a series of steps, by either deleting a term 
+already in the model, or adding a term from a list of candidates for inclusion, 
+called the scope of the search and defined, of course, by a model formula.
+
+Selection of terms for deletion or inclusion is based on Akaike's information 
+criterion (AIC). R defines AIC as
+
+AIC = –2 maximized log-likelihood + 2 number of parameters
+
+The procedure stops when the AIC criterion cannot be improved.
+
+In R all of this work is done by calling a couple of functions, `add1()` and 
+`drop1()~, that consider adding or dropping one term from a model. These 
+functions can be very useful in model selection, and both of them accept a 
+`test` argument just like `anova()`.
+
+Consider first `drop1()`. For our logistic regression model,
+
+```{r}
+drop1(lrfit2, test = "Chisq")
+```
+
+Obviously we can't drop any of these terms. Note that R considered dropping the 
+main effect of education, and the age by want no more interaction, but did not 
+examine the main effects of age or want no more, because one would not drop 
+these main effects while retaining the interaction.
+
+The sister function `add1()` requires a scope to define the additional terms to 
+be considered. In our example we will consider all possible two-factor 
+interactions:
+
+```{r}
+add1(lrfit2, ~ .^2, test = "Chisq")
+```
+
+We see that neither of the missing two-factor interactions is significant by 
+itself at the conventional five percent level. (However, they happen to be 
+jointly significant.) Note that the model with the age by education interaction 
+has a lower AIC than our starting model.
+
+The `step()` function will do an automatic search. Here we let it start from 
+the additive model and search in a scope defined by all two-factor interactions.
+
+
+```{r results = FALSE}
+search = step(lrfit1, ~.^2)
+```
+
+The `step()` function produces detailed trace output that I have supressed. The 
+returned object, however, includes an `anova` component that summarizes the 
+search:
+
+```{r}
+search$anova
+```
+As you can see, the automated procedure introduced, one by one, all three 
+remaining two-factor interactions, to yield a final AIC of 99.9. This is an 
+example where AIC, by requiring a deviance improvement of only 2 per parameter, 
+may have led to overfitting the data.
+
+Some analysts prefer a higher penalty per parameter. In particular, using 
+`log(n)` instead of 2 as a multiplier yields BIC, the Bayesian Information 
+Criterion. In our example `log(1607) = 7.38`, so we would require a deviance 
+reduction of 7.38 per additional parameter. The `step()` function accepts `k` 
+as an argument, with default 2. You may verify that specifying `k = log(1607)` 
+leads to a much simpler model; not only are no new interactions introduced, but 
+the main effect of education is dropped (even though it is significant). 
+
+In this example AIC would lead to a model that may be too complex, and BIC 
+would lead to a model that may be too simple. In my opinion, the model with 
+only one interaction is just right.
