@@ -395,7 +395,7 @@ what happens at each step):
 	collect style cell border_block, border(right, pattern(nil))
 	collect preview
 
-Ater using `table` to tabulate the data, we use `collect layout` 
+After using `table` to tabulate the data, we use `collect layout` 
 to specify rows with `educg` and columns with the percents for `cuse` 
 (using an interaction between `cuse` and `result[percent]`) 
 and the frequency for the total (interacting `cuse[.m]` with 
