@@ -5,7 +5,7 @@
 Stata 17 introduced a new system for producing highly-customizable
 tables. At the heart of the system is a new `collect` command that 
 can be used to collect the results left behind by various Stata
-commands and present then in tables. It also introduced a new `table` 
+commands and present them in tables. It also introduced a new `table` 
 command that simplifies the process for many kinds of tabulations, 
 and later an `etable` command that specializes in tables of estimates. 
 In this tutorial we will touch briefly on all three commands.
@@ -137,7 +137,7 @@ in rural areas.
 This table could use a title. As it happens the `table` command
 does not have a title option, but there is a `collect title` 
 command that adds a title to the current collection, and a
-`collect preview` commnand to display the collection. Try
+`collect preview` command to display the collection. Try
 
 ```
 collect title "Mean years of education by age and area"

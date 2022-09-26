@@ -563,7 +563,7 @@ looks at the data and stores each variable in the smallest possible data
 type that will not result in loss of precision.
 
 It is possible to add variables or observations to a Stata file. To add
-*variables* you use the `merge` commmand, which requires two (or more)
+*variables* you use the `merge` command, which requires two (or more)
 Stata files, usually with a common id so observations can be paired
 correctly. A typical application is to add household information to an
 individual data file. Type `help merge` to learn more.

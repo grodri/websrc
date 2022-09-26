@@ -1291,7 +1291,7 @@ looks at the data and stores each variable in the smallest possible data
 type that will not result in loss of precision.
 
 It is possible to add variables or observations to a Stata file. To add
-*variables* you use the `merge` commmand, which requires two (or more)
+*variables* you use the `merge` command, which requires two (or more)
 Stata files, usually with a common id so observations can be paired
 correctly. A typical application is to add household information to an
 individual data file. Type `help merge` to learn more.
@@ -1323,7 +1323,7 @@ to learn more.
 Stata 17 introduced a new system for producing highly-customizable
 tables. At the heart of the system is a new `collect` command that 
 can be used to collect the results left behind by various Stata
-commands and present then in tables. It also introduced a new `table` 
+commands and present them in tables. It also introduced a new `table` 
 command that simplifies the process for many kinds of tabulations, 
 and later an `etable` command that specializes in tables of estimates. 
 In this tutorial we will touch briefly on all three commands.
@@ -1455,7 +1455,7 @@ in rural areas.
 This table could use a title. As it happens the `table` command
 does not have a title option, but there is a `collect title` 
 command that adds a title to the current collection, and a
-`collect preview` commnand to display the collection. Try
+`collect preview` command to display the collection. Try
 
 ```
 collect title "Mean years of education by age and area"
@@ -1713,7 +1713,7 @@ what happens at each step):
 	collect style cell border_block, border(right, pattern(nil))
 	collect preview
 
-Ater using `table` to tabulate the data, we use `collect layout` 
+After using `table` to tabulate the data, we use `collect layout` 
 to specify rows with `educg` and columns with the percents for `cuse` 
 (using an interaction between `cuse` and `result[percent]`) 
 and the frequency for the total (interacting `cuse[.m]` with 
