@@ -1,0 +1,99 @@
+
+## Survival with a Regression Spline
+
+By popular request, here's an example using a piecewise exponential
+model with a regression spline, applied to the recidivism data. The
+first thing to do is read the data and create a failure indicator.
+
+.include srtabs
+
+```s
+	use https://www.stata.com/data/jwooldridge/eacsap/recid.dta, clear
+	gen fail = 1 - cens
+```
+
+```r
+	library(haven)
+	recid <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/recid.dta")
+	recid$fail <- 1 - recid$cens
+	nrow(recid)
+```
+
+Next I will split the data every three months, and create a new variable
+to reflect exposure (time lived in each interval)
+
+```s
+	gen id = _n
+	stset durat, fail(fail) id(id)
+	stsplit trimester, at(3(3)78)
+```
+
+```r
+	library(survival)
+	recidx <- survSplit(Surv(durat, fail) ~ ., cut=seq(3,78,3), data=recid)
+	nrow(recidx)
+	recidx$exposure <- recidx$durat - recidx$tstart
+```
+
+To model the baseline hazard I will use a regression spline with
+internal knots at 30, 40 and 60 weeks. These are approximately the
+quartiles of overall survival as calculated using Kaplan-Meier. To
+define the spline I used the mid-point of each interval, 1.5 months
+after the start. I then fit a Poisson model with the log of exposure as
+an offset
+
+```s
+	gen mid = _t0 + 1.5
+	bspline, xvar(mid) knots(0 30 40 60 80) p(3) gen(bspl)
+	gen expo = _t - _t0
+	poisson _d bspl* workprg priors tserved felon drugs black married ///
+		educ age, exposure(expo) nocons
+```
+
+```r
+	library(splines)
+	mf <- fail ~ offset(log(exposure)) +  workprg + priors +  tserved + felon + 
+		drugs + black + married + educ +  age + bs(tstart + 1.5, knots=c(30, 40, 60))
+	pwe <- glm(mf, family=poisson, data=recidx)
+	coef(summary(pwe))[1:10,]
+```
+
+You may want to check that the coefficients for our predictors are very
+similar to those obtained using a Cox model. As for the shape of the
+hazard, we can predict using the spline coefficients.
+
+```s
+	preserve // for safety
+	egen tag = tag(mid)
+	keep if tag // one obs per interval
+	gen shat = 0
+	forvalues i=1/7 {
+		quietly replace shat = shat + bspl`i' * _b[bspl`i']
+	}    
+	expand 2
+	gen first = _n <= 27
+	replace mid = mid - 1.5 if first
+	replace mid = mid + 1.5 if !first
+	sort mid first    
+	line shat mid, xtitle(duration)
+	graph export pweSpline.png, width(500) replace
+```
+
+```r
+	library(ggplot2)
+	m <- seq(1.5, 79.5, 3)
+	y <- bs(m, knots=c(30,40,60)) %*% coef(pwe)[11:16]
+	xy <- data.frame( duration = sort(c(m-1.5, m+1.5)), hazard = rep(y, rep(2,length(y))))
+	ggplot(xy, aes(duration, hazard)) + geom_line()
+	ggsave("pweSpliner.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](pweSpline.png){.stata}
+![](pweSpliner.png){.r}
+
+Showing once agan that the hazard appears to rise initially and then
+decline steadily, so a log-normal is not a bad fit. Note that plotting
+the spline would be a bit misleading, as we really didn't fit a curve,
+but rather a piecewise constant hazard where the value in each
+three-month interval is taken from the curve. The graph above takes this
+into account.

@@ -1,0 +1,298 @@
+
+## Interpretation of Frailty Models
+
+We continue our discussion of shared frailty models with a focus on interpretation 
+of the results  using various calculations based on the parameter estimates.
+
+### The Distribution of Frailty
+
+The estimated variance of frailty at the family level is 0.2142. In terms of 
+Clayton's model this means  that the hazard given that a sibling died at age 
+*a* is 21.4% higher than the hazard given that the sibling survived age to *a*.
+
+Using the result of Oakes, we can also say that the Tau correlation between 
+sibling survival times is estimated to be 0.097, so the probability of a 
+concordant pair is about 10 percentage points higher than the probability of a 
+discordant pair. (The "pair" here refers to a pair of mothers, say A and B, each 
+with two children, say 1 and 2. The pair is concordant if both children of mother 
+A die at younger (or older) ages than the children of mother B. The pair is 
+discordant if child 1 of A lives longer than child 1 of B but child 2 of A dies 
+younger than child 2 of B. The interpretation is not terribly useful in this 
+application because most observations are censored and thus one can't establish 
+concordance or discordance.)
+
+.include srtabs
+
+A more direct approach is to look at the actual distribution of frailty. 
+[Stata has a function `gammaden(a, b, g, x)` to compute the density of the 
+gamma distribution with shape `a`, scale `b` (which is *1/ß* in our notation) 
+and location `g` (here 0).]{.stata} 
+<code>b = 1/a</code></span>.
+[R has a function `dgamma(x, shape, rate = 1, scale = 1/rate)` to compute 
+the density of the gamma distribution with given shape and scale (or its 
+reciprocal the rate).]{.r}
+To obtain a distribution with mean 1 and variance `v` we set the shape
+parameter to `1/v` and the scale to `v`.
+
+
+```s
+	scalar v = exp( -1.5407144 )
+	twoway function y=gammaden(1/v,v,0,x), range(0 3) ///
+		title("Gamma density with mean 1 and variance 0.214")
+	graph export gfr.png, width(500) replace 
+```
+
+![](gfr.png){.stata}
+
+```r
+	v <- exp( -1.5407144 )
+	theta <- seq(0, 3, 0.02) 
+	density <- dgamma(theta, shape = 1/v, scale = v)
+	gd <- data.frame(theta, density)
+	library(ggplot2)
+	ggplot(gd, aes(theta, density)) + geom_line() + 
+		ggtitle("Gamma Density (mean 1, var 0.214)")
+	ggsave("gfrr.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](gfrr.png){.r}
+
+We can also compute quantiles. 
+[Stata has a function `invgammap(a, p)` to compute quantiles of the standard 
+gamma distribution with shape `a`, which has scale 1 and location 0. 
+A gamma with shape `a` and scale `b` is just `b` times a standard gamma with 
+shape `a`.]{.stata}
+[In R we use `qgamma(q, shape, rate = 1, scale = 1/rate, lower.tail = TRUE)`
+to compute quantiles.]{.r}
+So here are the quartiles of the distribution depicted above.
+
+```s
+	mata v = st_numscalar("v")
+	mata q = invgammap(1/v, (0.25,.50,.75) )*v
+	mata q
+	mata q :/ q[2] :- 1
+```
+
+```r
+	p <- (1:3)/4
+	q <- qgamma(p, shape = 1/v, scale = v); q
+	q / q[2] - 1
+```
+
+So the quartiles are 0.66, 0.93 and 1.26. Computing the ratios Q1/Q2 and Q3/Q2,
+we see that families with  frailty at Q1 have 29% lower risk, and families with 
+frailty at Q3 have 36% higher risk, than families with median frailty. Clearly, 
+unobserved family characteristics have a very substantial effect on child survival.
+
+### Distribution of Observed Risks
+
+It may be interesting to contrast the above results with the risks that can be 
+attributed to observed characteristics.
+
+At this point we need the results from the piecewise exponential model with gamma 
+frailty. I saved the file generated in the previous log as `PebleyStupp2.dta`. 
+We read the file [and fit the model again.]{.stata} </span>
+[and then read the parameter estimates from `PebleyStupp2.dat`.]{.r}
+
+```s
+	use https://data.princeton.edu/pop509/PebleyStupp2, clear 
+	streg i.dur mage mage2 borde pdead p0014 p1523 p2435 p36up i011a1223 i011a24p i1223a24p , ///
+		dist(exponential) frailty(gamma) shared(momid) nolog
+```
+
+```r
+	library(haven)
+	gux <- read_dta("https://data.princeton.edu/pop509/PebleyStupp2.dta")
+	gux$death <- unlist(gux[,"_d"])
+	b <- scan("https://data.princeton.edu/pop509/PebleyStupp2.dat")
+```
+
+Next we simply predict the hazard holding family frailty constant at one. 
+Remember, however, that each child contributes one or more pseudo observations,
+but should be counted once only, so we pick first segments.
+
+```s
+	predict haz, haz
+	sum haz if _t0==0, detail
+	di r(p25), r(p50), r(p75)
+	di  r(p25)/r(p50) - 1, r(p75)/r(p50) - 1
+```
+
+```r
+	mf <-  death ~ factor(dur) + mage + mage2 + borde + pdead + 
+		p0014 + p1523 + p2435 + p36up + i011a1223 + i011a24p + i1223a24p
+	X <- model.matrix(mf, data = gux)
+	haz <- exp(X %*% b)
+	first <- gux$dur == 0
+	r <- quantile(haz[first], probs = 1:3/4); r
+    r/r[2] - 1
+```    
+
+So children who are at Q1 of the observed risk factors, have 12% lower risk, 
+and children at Q3 of observed risk factors have 17% higher risk, than children 
+at the median of observed risk factors. Looks like characteristics that are 
+observed at birth have a smaller impact on survival than unobserved family 
+characteristics. (We have not considered time-varying covariates, such as the 
+birth of another child, but one can calculate their impact for any given child 
+by specifying a trajectory.)
+
+### Subject-Specific Probabilities
+
+Another approach to presenting results is to calculate survival probabilities. 
+I will calculate probabilities of surviving to ages one and five, the complements 
+of the infant and child mortality "rates". First let us get the baseline hazard, 
+the width of the intervals, and thus the cumulative baseline hazard. 
+(The current run includes a constant, so we need to take that into account.)
+
+```s
+	mata:
+		b = st_matrix("e(b)")
+		h = exp(b[17] :+ b[1..5])
+		w = (1, 5, 6, 12, 36)
+		H = runningsum(w :* h)
+	end
+```
+
+```r
+	h <- exp(b[1] + c(0, b[2:5]))
+	w <- c(1, 5, 6, 12, 36)
+	H <- cumsum(w * h)
+```
+
+Next I will focus on a mother who is 26 years old (pretty close to the mean age), 
+is having a second child  (so we can include the length of the first interval 
+as a predictor), and has not experienced a child death before giving birth to 
+the second child. We consider first the case where the preceding birth interval 
+is 3 years or longer.
+
+The relevant parameters for age, age-squared, birth order and previous birth 
+interval are in positions 6, 7, 8, and 13 of the vector of parameters.
+
+```s
+	mata xb = b[6]*26 + b[7]*26^2 + b[8]*2 + b[13]
+```
+
+```r
+	xb <- b[6]*26 + b[7]*26^2 + b[8]*2 + b[13]
+```
+
+We can now compute the survival function for the average family with these 
+characteristics. We will also change the previous birth interval to one year, 
+by removing the coefficient in position 13 and adding the one in position 10:
+
+```s
+	mata 1 :- exp( -H * exp(xb) )
+    mata 1 :- exp( -H * exp(xb - b[13] + b[10]) )
+```
+
+```r
+	1 - exp( -H * exp(xb) )
+	1 - exp( -H * exp(xb - b[13] + b[10]) )
+```
+
+So the probabilities of infant and child death for the average 26-year old mother 
+having a second child are 5.7 and 8.6% with a three-year interval, 
+and 14.1% and 20.7% with a one-year interval.
+
+If we consider instead mothers at the first and third quartiles of frailty we obtain
+
+```s
+	mata:
+		1 :- exp( -H * q[1] * exp(xb) ) 
+		1 :- exp( -H * q[1] * exp(xb - b[13] + b[10]) ) 
+		1 :- exp( -H * q[3] * exp(xb) ) 
+		1 :- exp( -H * q[3] * exp(xb - b[13] + b[10]) ) 
+	end
+```	
+
+```r
+	1 - exp( -H * q[1] * exp(xb) ) 
+    1 - exp( -H * q[1] * exp(xb - b[13] + b[10] ) ) 
+    1 - exp( -H * q[3] * exp(xb) ) 
+    1 - exp( -H * q[3] * exp(xb - b[13] + b[10] ) ) 
+```
+
+So for a low-risk (Q1) family, the probability of child death goes from 
+5.8 to 14.2 when we compare long and short intervals. 
+For a high-risk (Q3) family, the corresponding probability goes from 
+10.8 to 25.4%.
+
+### Population-Average Probabilities
+
+We can also calculate the average probabilities in the population of 26-year old 
+mothers having a second birth.  
+From the results in the notes, the (complements of) the survival probabilities 
+under gamma frailty are
+
+```s
+	mata  1 :- (1 :/ (1 :+ v * H :* exp(xb))) :^(1/v)
+    mata  1 :- (1 :/ (1 :+ v * H :* exp(xb - b[13] + b[10]))) :^(1/v)
+```
+
+```
+	1 - (1 / (1 + v * H * exp(xb)))^(1/v)
+	1 - (1 / (1 + v * H * exp(xb - b[13] + b[10])))^(1/v)
+```
+
+So on average, the probabilities of infant and child deaths are 5.7 and 8.6% 
+with three-year intervals and  13.9 and 20.3% with one-year birth intervals. 
+These are a bit lower than the corresponding probabilities for the average 
+family with the given characteristics. (The difference is modest because by 
+ages one and five there hasn't been a lot of time for selection to operate.)
+
+### Marginal, Joint and Conditional Probabilities
+
+One last calculation we can do explicitly under gamma heterogeneity involves 
+the marginal and joint probabilities of infant and child death for two children 
+in the same family.
+
+We could do these calculations for 26 year-old mothers having a second birth 
+three or more years after the first, but unless they have twins the calculation 
+of bivariate probabilities doesn't make a lot of sense. So I will do the 
+calculations for a second birth at age 26 and a third at age 29, everything else 
+being the same. (A simpler approach would be to do the calculations for mothers 
+whose observed risk factors put them at the median.)
+
+Applying the results in the notes:
+
+```s
+	mata xb2 = b[6]*29 + b[7]*29^2 + b[8]*3 + b[13]
+	mata S1 = (1 :/ (1 :+ v * H :* exp(xb))) :^(1/v)
+	mata S2 = (1 :/ (1 :+ v * H :* exp(xb2))) :^(1/v)
+	mata S12 = (1 :/ (1 :+ v * H :* (exp(xb) + exp(xb2)))) :^(1/v)
+	mata S1 :* S2 \ S12
+```
+
+```r
+	xb2 <- b[6]*29 + b[7]*29^2 + b[8]*3 + b[13]
+	S1  <- (1 / (1 + v * H * exp(xb)))^(1/v)
+	S2  <- (1 / (1 + v * H * exp(xb2)))^(1/v)
+	S12 <- (1 / (1 + v * H * (exp(xb) + exp(xb2))))^(1/v)
+	matrix( c(S1 * S2 , S12), 2, 5, byrow=TRUE)
+```
+
+So the probability of two children surviving to age five is slightly higher than 
+the product  of the two marginals.  A better way to see the correlation is to 
+calculate a two by two table with survival to age five for two children in the 
+same family.
+
+```s
+	mata M = ( 1 - S1[5] - S2[5] + S12[5] , S2[5] - S12[5] \ S1[5] - S12[5], S12[5])
+	mata M    
+	mata (M[1,1]/M[1,2]) / (M[2,1]/M[2,2])
+```
+
+```r
+	M <- matrix( c(1 - S1[5] - S2[5] + S12[5] , S2[5] - S12[5], S1[5] - S12[5], S12[5]), 2, 2)
+	M
+	(M[1,1]/M[1,2]) / (M[2,1]/M[2,2])
+```
+
+The last calculation is an odds ratio: the odds of one child dying by age five 
+are 23.9% higher if the other child  died by age five than if the other didn't!
+
+A [separate note](/pop509/frailty2r) discusses the use of log-normal frailty, 
+which has the important advantage that it extends easily to multi-level models. 
+Calculation of unconditional survival, however, requires numerical integration.
+The results are very similar to those presented here.
+

@@ -1,0 +1,10 @@
+
+## A Frailty Shiny App
+
+Here's an illustration of what happens to a proportional hazards model when we add unobserved heterogeneity. We consider two groups where the subject-specific survival is exponential with constant hazards of 1 and 2. By moving the slider you can add gamma-distributed unobserved heterogeneity with a variance between 0 and 0.5.
+
+<iframe src="https://grodri.shinyapps.io/Frailty/" style="border:0; width:100%;height:600px"></iframe>
+
+You will notice that as the variance of frailty increases the population-average hazards drop below the subject-specific hazards, reflecting selection. Moreover, the effect is more pronounced in the group with higher initial risk. As a result, the proportional hazards model no longer holds.
+
+The lesson here is that with single-failure data we cannot distinguish duration dependence or non-proportional effects from unobserved heterogeneity.

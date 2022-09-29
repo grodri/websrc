@@ -1,0 +1,62 @@
+
+## A Note on Log-Normal Frailty
+
+An alternative choice of frailty distribution is the log-normal. In
+Stata you may fit this model via the Poisson trick because `xtreg` lets
+you select gamma or log-normal random effects, whereas `streg`
+implements gamma and inverse Gaussian frailty. In R `coxph()` implements
+gamma frailty by adding `frailty()` to the model formula, whereas
+`coxme()` assumes log-normal random effects.
+
+One advantage of log-normal frailty is that we can view the log of
+frailty as *σ z* where *z \~ N(0,1)* is a standard normal random
+variable. This means that we can interpret the parameter *σ*, the
+standard deviation of shared frailty, as a regression coefficient for a
+normally-distributed random variable representing unobserved family
+characteristics, just like the *β*'s are coefficients for observed
+characteristics.
+
+For the Guatemalan data we have been discussing, a piecewise exponential
+model (which regretably does not converge in R), produces an estimate of
+*σ* of 0.442. Exponentiating this we obtain *exp(0.442) = 1.556*. This
+means that a one standard deviation difference in unobserved family
+characteristics is associated with 55.6% higher risk at any age. We can
+also look at the interquartile difference in risks, using the quartiles
+of the normal distribution:
+
+.include srtabs
+
+```s
+	mata sigma = 0.4423953
+	mata exp(sigma)
+	mata exp( invnormal( (0.25, 0.75) ) * sigma ) :- 1    
+```
+
+```r
+	sigma <- 0.4423953 
+	exp(sigma)
+	exp( qnorm(c(0.25, 0.75)) * sigma ) - 1
+```
+
+So we see that families in the lower quartile have 26% lower risk, and
+families in the upper quartile have 35% higher risk, than families at
+the median. These results are similar to those obtained under gamma
+frailty (29% lower and 36% higher risk).
+
+Another important advantage of log-normal frailty is that it extends
+easily to more than two levels and to more general random-intercept and
+random-slope models, as we will see in the multilevel course.
+
+A disadvantage, however, is that the unconditional survival distribution
+does not have a closed form, unlike the case of gamma frailty. To do
+calculations similar to those of the previous sections we would have to
+use Gaussian quadrature to integrate out the random effect.
+
+A technical note: when log-frailty is *N(0,σ^2^)* frailty itself has mean
+*exp{σ^2^/2}* and variance *(exp(σ^2^)-1) exp(σ^2^)*. The fact that the
+mean is not one affects only the constant. If the model does not have a
+constant, the baseline hazard is shifted by *σ^2^/2 = 0.0979* in the
+log-scale. Once you take this into account, the baseline hazards for the
+piecewise exponential models using gamma and log-normal frailty are
+extremely similar. The variance of frailty works out to be 0.2629, which
+is similar to the value of 0.2142 in the previous model.

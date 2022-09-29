@@ -1,0 +1,174 @@
+## Kaplan-Meier and Mantel-Haenzsel
+
+The datasets page has a copy of the Gehan survival data, which were
+analyzed by Cox in his original proportional hazards paper. The data
+shows the length of remission in weeks for two groups of leukemia
+patients, treated and controls, click
+[here](https://data.princeton.edu/wws509/datasets/#gehan) for more
+information.
+
+We analyze the data using R and Stata, using the Kaplan-Meier and
+Nelson-Aalen estimates of the survival function and the Mantel-Haenszel
+test to compare survival curves.
+
+.include srtabs
+
+As usual, the first task is to read the data. [We also `stset` them and
+label the groups.]{.stata}
+
+```s
+    clear
+    infile group weeks relapse using ///
+        https://data.princeton.edu/wws509/datasets/gehan.raw
+    label define group 1 "control" 2 "treated"
+    label values group group
+    stset weeks, failure(relapse)
+```
+
+```r
+    gehan <- read.table("https://data.princeton.edu/wws509/datasets/gehan.dat")
+    library(dplyr)
+    summarize(gehan, events = sum(relapse), exposure = sum(weeks))
+```
+
+As you can see, 30 of the 42 patients had a relapse, with a total
+observation time of 541 weeks. The weekly relapse rate is 7.8%.
+
+### Kaplan-Meier
+
+The Kaplan-Meier estimators for the two groups are easily [plotted using
+`sts graph` with the `by(group)` option.]{.stata} [computed using
+`survfit` in the survival package and plotted using the generic function
+`plot()`, called via my own `ggfy()` to make the plot look a bit like
+`ggplot`.]{.r}
+
+```s
+    set scheme plottig
+    sts graph, by(group)
+    graph export kmg.png, width(500) replace
+```
+
+```r
+    library(survival)
+    kmg <- survfit(Surv(weeks, relapse) ~ group, data=gehan)
+    source("https://data.princeton.edu/pop509/ggfy.R.txt")
+    png("kmgr.png", width=500, height=400)
+    ggfy(kmg) # or call plot(kmg) directly
+    dev.off()
+```
+
+![Kaplan-Meier](kmg.png){.stata} 
+![Kaplan-Meier](kmgr.png){.r}
+
+This shows that after 23 weeks all patients in the control group had
+relapsed, but about half those in the treated group remained in
+remission. This reproduces Figure 1 in the notes.
+
+We can list the estimates using [`sts list`.]{.stata} [the `summary()`
+method.]{.r}
+
+```s
+    sts list, by(group)
+```
+
+```r
+    summary(kmg)
+```
+
+The convention is to list the survival function immediately *after* each
+time. In the control group there are no censored observations, and the
+Kaplan-Meier estimate is simply the proportion alive after each distinct
+failure time. You can also check that the standard error is the usual
+binomial estimate. For example just after 8 weeks there are 8 out of 21
+alive, the proportion is 8/21 = 0.381 and the standard error is
+√0.381(1 - 0.381)/21) = 0.106.
+
+In the treated group 12 cases are censored and 9 relapse. Can you
+compute the estimate by hand? Only the distinct times of death --6, 7,
+10, 13, 16, 22 and 23-- are relevant. The counts of relapses are 3, 1,
+1, 1, 1, 1, 1. When there are ties between event and censoring times, it
+is customary to assume that the event occurred first; that is,
+observations censored at *t* are assumed to be exposed at that time,
+effectively censored just after *t*. The counts of censored observations
+after each death time (but before the next) are 1, 1, 2, 0, 3, 0 and 5.
+When the last observation is censored, the K-M estimate is greater than
+zero, and is usually considered undefined from that point on.
+
+### Nelson-Aalen
+
+We can also compute the Nelson-Aalen estimate of the cumulative hazard,
+and then exponentiate minus the cumulative hazard to obtain an
+alternative estimate of the survival function. [Stata's `sts list` can
+compute the Nelson-Aalen estimate using the `na` option, and
+`sts generate` can save either estimate in a new variable as shown
+below.]{.stata} [In R we can estimate the cumulative hazard "by hand"
+using counts of events and exposure.]{.r}
+
+```s
+    sts generate kmS = s    
+    sts generate naH = na
+    gen naS = exp(-naH)
+    twoway (line kmS _t, c(J) sort) (line naS _t, c(J) sort)
+    graph export kmna.png, width(500) replace
+```
+
+```r
+    sf <- survfit(Surv(weeks, relapse) ~ 1, data = gehan)
+    d <- data.frame(time = sf$ time, km = sf $surv, 
+        na = exp(-cumsum(sf$n.event / sf$n.risk)))    
+    dl <- reshape(d, direction="long", idvar="time", timevar="method", 
+        v.names="survival", varying=c("km","na")) %>%
+        mutate(method = factor(method, labels=c("km","na")))
+    library(ggplot2)
+    ggplot(dl, aes(time, survival, color=method)) + geom_step()
+    ggsave("kmnar.png", width=500/72, height=400/72, dpi=72)
+```
+
+![Aalen and KM](kmnar.png){.stata} 
+![Aalen and KM](kmnar.png){.r}
+
+The two estimates are very similar.
+
+### Mantel-Haenszel
+
+To test equality of survival curves in the two groups we can use the
+Mantel-Haenszel or log-rank test, available [in the `sts test` command
+with the default `logrank` option.]{.stata} [via the `survdiff`
+function.]{.r}
+
+```s
+    sts test group
+```
+
+```r
+    survdiff(Surv(weeks, relapse) ~ group, data = gehan)
+```
+
+We see that the treated have fewer deaths than would be expected (and
+thus the controls have more) if the two groups had the same survival
+distribution: 9 instead of 19.25. The Mantel-Haenszel chi-squared
+statistic of 16.8 on one d.f. is highly significant.
+
+It is instructive to compute this statistic "by hand".
+
+The Mantel-Haenszel test is just one of several test statistics that we
+could use. There is a family of test based on a comparison of observed
+and expected counts at each distinct failure time, which differ in terms
+of the weights assigned to each time as shown in the table below
+
+  Name                 Weight
+  -------------------- -----------------------------
+  Mantel-Haenszel      1
+  Wilcoxon             *n~i~*
+  Tarone-Ware          *√n~i~*
+  Peto-Peto-Prentice   *S(t~i~)*
+  Fleming-Harrington   *S(t~i~)^p^ (1-S(t~i~))^q^*
+
+The most popular of these is the Wilcoxon test -actually an extension of
+Wilcoxon's well-known non-parametric test- proposed by Gehan and
+Breslow, which gives more weight to early failures. [Stata can compute
+all four using the options `wilcoxon`, `tware`, `peto` and
+`fh(p, q)`.]{.stata} [R implements three using a parameter `rho` (*p* in
+our notation), with `rho=0` for log-rank, `rho=1` for Peto-Peto, and 
+`rho=p` for Fleming-Harrington with `q=1`.]{.r} The tests using the 
+survival as weight treat it as left-continuous.

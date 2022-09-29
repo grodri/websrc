@@ -1,0 +1,218 @@
+
+## Cox Proportional Hazards Regression
+
+We return to the recidivism data that we analyzed using parametric
+models. Let us start by reading the data and setting them up for
+survival analysis
+
+.include srtabs
+
+```s
+	use https://www.stata.com/data/jwooldridge/eacsap/recid, clear
+	gen fail = 1 - cens
+	stset durat, failure(fail)
+```
+
+```r
+	library(haven)
+	recid <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/recid.dta")
+	recid$fail = 1 - recid$cens
+```
+
+### A Proportional Hazards Model
+
+We fit a proportional hazards model using the efron method for handling
+ties:
+
+```s
+	local model workprg priors tserved felon drugs black married educ age
+	stcox `model', efron
+	estimates store efron // for later comparisons
+```
+
+```r
+	library(survival)
+	mf <- Surv(durat, fail) ~ 
+	  workprg + priors + tserved + felon + drugs + black + married + educ + age
+	cm <- coxph(mf, data = recid)
+	cm
+```
+
+The estimated coefficients are similar to those obtained using a Weibull
+model. Here's a side by side comparison. [Recall that R uses the AFT
+metric, so we need to convert to PH to compare. ]{.r}
+
+```s
+	quietly streg `model', distribution(weibull)
+	estimates store weibull
+	estimates table efron weibull, equation(1:1) // match equations
+```
+
+```r
+	wm <- survreg(mf, dist = "weibull", data = recid)
+	cbind( coef(cm), -coef(wm)[-1]/wm$scale ) 
+```
+
+For example the Cox coefficient for blacks indicates that African
+Americans face a 48.6% higher risk of recidivism at any duration since
+release from prison than non-blacks with the same observed
+characteristics. The Weibull analysis yielded an estimate of 51.3%
+higher hazard.
+
+### The Treatment of Ties
+
+Let us compare all available methods of handling ties. If you run this
+code expect the exact calculation to take substantially longer than the
+others.
+
+```s
+	quietly stcox `model', breslow // default
+	estimates store breslow
+	quietly stcox `model', exactm
+	estimates store exactm
+	quietly stcox `model', exactp
+	estimates store exactp
+	estimates table breslow efron exactm exactp
+```
+
+```r
+	cm_b <- coxph(mf, data=recid, ties="breslow")
+	cm_e <- coxph(mf, data=recid, ties="exact")
+	data.frame(breslow = coef(cm_b), efron = coef(cm), exactp = coef(cm_e))
+```
+
+As is often the case, the Efron method comes closer to the exact partial
+likelihood estimate with substantially less computational effort,
+although in this application all methods yield very similar results.
+
+### Baseline Hazard
+
+After fitting a Cox model we can obtain estimates of the baseline
+survival or cumulative hazard using extensions of the Kaplan-Meier and
+Nelson-Aalen estimators.
+
+Estimates of the hazard itself, which may be obtained by differencing
+the estimated cumulative hazard or negative the estimated survival, are
+usually too "spiky" to be useful, but can be smoothed to glean the
+general shape.
+
+::: {.stata}
+Stata makes these calculations extremely easy via the `stcurve` command.
+By default the command computes the baseline hazard or survival setting
+all covariates to their means, not zero. You can request other values
+via the options `at(varname=value)`. Below I plot the hazards for blacks
+and others with all other variables set to their means. To make sure you
+understand exactly what Stata is doing under the hood I also do this
+"by hand".
+:::
+
+::: {.r}
+In R we can obtain the survival via `survfit()`, which accepts a Cox
+model as argument. You are encouraged to always call this function with
+a new data frame that specifies exactly what you want to calculate. The
+default is the mean of all covariates used in the Cox fit. Below I
+calculate the means explicitly and construct a data frame with two rows,
+representing blacks and others with all other variables set to their
+means. I then compute the survival, and difference the negative log to
+obtain the hazard.
+:::
+
+```s
+	stcurve, at(black=1) at(black=0) hazard
+	// by hand:
+	preserve
+	quietly sum black
+	scalar mb = r(mean)
+	predict H, basech       
+	keep if fail
+	bysort _t: keep if _n == 1
+	gen h= H[_n + 1] - H
+	gen rr0 = exp((1 - mb) * _b[black])
+	gen rr1 = exp( - mb    * _b[black])
+	gen h0 = h * rr0
+	gen h1 = h * rr1
+	line h0 h1 _t, col(red blue) legend(off)
+	lowess h0 _t, gen(s0) bw(0.5) nograph
+	lowess h1 _t, gen(s1) bw(0.5) nograph
+	line h0 h1 s0 s1 _t, col(red blue red blue) legend(off) aspect(1)
+	restore
+	graph export recidhaz.png, width(500) replace 
+```
+
+```r
+	library(dplyr)
+	library(ggplot2)
+	means <- summarize_each(recid, funs(mean))
+	nd <- rbind(means, means) %>% mutate(black = 0:1)
+	sf <- survfit(cm, newdata = nd) # type will match estimate
+	nr <- length(sf$time)
+	ndh <- data.frame( 
+	  ethn = factor(rep(c("black","other"), rep(nr - 1, 2))),
+	  time = (sf$time[-1] + sf$time[-nr])/2,
+	  hazard = c(diff(-log(sf$surv[,2])), diff(-log(sf$surv[,1])))
+	)
+	ggplot(ndh, aes(time, hazard, color = ethn)) + geom_line() + 
+		geom_smooth(span = 0.5, se = FALSE)
+	ggsave("recidhazr.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+
+![](recidhaz.png){.img-responsive .img-center .stata}
+![](recidhazr.png){.img-responsive .img-center .r}
+
+The estimates suggests that the hazard raises a bit in the first few weeks 
+after release and then declines with duration. This result is consistent with 
+the observation that a log-normal model fits better than a Weibull.
+
+### Schoenfeld Residuals
+
+We now check the proportional hazards assumption using scaled Schoenfeld
+residuals. Recall that our software uses different defaults so results
+will differ. Stata computes the test using the original time scale. R
+computes it using the overall survival function as the time scale. [We
+specify `transform = "identity"` to obtain exactly the same results.
+]{.r}
+
+```s
+	estimates restore efron 
+	estat phtest, detail
+```
+
+```r
+	zph <- cox.zph(cm, transform = "identity"); zph
+```
+
+The overall chi-squared statistic of 12.76 on 9 d.f. indicates no
+significant departure from the proportional hazards assumption. The only
+variable that might deserve further scrutiny is time served, which has
+the largest chi-squared statistic, although it doesn't reach the
+conventional five percent level. Just out of curiosity we can plot the
+scaled Schoenfeld residuals against time. To do this [we use the
+`plot(varname)` option of `stphtest`. ]{.stata}[we use the generic
+`plot()` function, called via `ggfy()` to make the plot look a bit
+like `ggplot`, with the object `zph[3]` that includes the index of
+the variable of interest.]{.r}
+
+```s
+	stphtest, plot(tserved)
+	graph export recidpht.png, width(500) replace
+```
+
+
+```r
+	source("ggfy.R.txt")
+	png(file="recidphtr.png", width=500, height=400)
+	ggfy(zph[3]) # or call plot(zph[3]) directly
+	dev.off()
+```
+
+![](recidpht.png){.img-responsive .img-center .stata}
+![](recidphtr.png){.img-responsive .img-center .r}
+
+We see no evidence of a trend in the effect of time served, so we have no 
+evidence against the proportionality assumption.
+
+More detailed exploration of this issue can be pursued by introducing
+interactions with duration, as we demonstrated using [Cox's
+example](cox).
+

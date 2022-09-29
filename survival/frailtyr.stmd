@@ -1,0 +1,148 @@
+
+## A Cox Model with Shared Frailty
+
+We now fit a Cox model with shared frailty to data on child mortality in
+Guatemala. We have analized this data using piecewise exponential models
+with Gamma heterogeneity, using Stata, see [this
+page](https://data.princeton.edu/pop509/frailty.html). We now try a Cox
+model with log-normal heterogeneity using R.
+
+The dataset is available as a Stata file in long format (one record per
+child)
+
+```r
+	library(haven)
+	gu <- read_dta("https://data.princeton.edu/pop509/PebleyStupp.dta")
+```
+
+### A Cox Model
+
+The first step is to conduct an analysis equivalent to Pebley and
+Stupp's original. We will split the data at durations 1, 6, 12, 24 and
+60. This opens the option of reproducing their results exactly, and also
+allows us to create a key time-varying covaraite.
+
+```r
+	library(survival)
+	gux <- survSplit(gu, cut = c(1, 6, 12, 24, 60), 
+		end = "time", event="death", start="t0", episode="dur")
+```
+
+The model includes mother's age and age squared, a linear term on birth
+order, and an indicator of whether the previous kid in the family died.
+There are also indicators of the length of the previous interval (in
+lieu of a factor).
+
+The model also includes a time-varying covariate with time-varying
+effects. The variable is the length of the *following* birth interval,
+with indicators `f0011` for intervals under a year and `f1223` for
+intervals of one to two years, capturing very short and short intervals
+where a child would face competition from a sibling.
+
+These are coded as time-varying covariates because a sibling is assumed
+to affect the life of the index child after it is born. So we consider
+very short intervals (\< 12) only at ahes 12 months and higher, and
+short intervals (12-23 months) only at ages 24 months and higher. This
+is the time-varying part. But the effect of very short intervals is also
+allowed to vary, havving different effects at ages 12-23 and 24 or more.
+Here are all the variables we need:
+
+```r
+	library(dplyr)
+	gux <- mutate(gux,
+	   mage2 = mage^2,
+	   i011a1223 = f0011 * (t0 == 12),
+	   i011a24p  = f0011 * (t0 == 24),
+	   i1223a24p = f1223 * (t0 == 24))
+```
+
+We are now ready to fit the model using Cox's partial likelihood.
+
+```r
+	phaz <- coxph(Surv(t0, time, death) ~ mage + mage2 + borde + pdead +
+		p0014 + p1523 + p2435 + p36up + i011a1223 + i011a24p + i1223a24p,
+		data = gux)
+	phaz
+```
+
+The similarity of the results to those obtained using a piecewise
+exponential model is remarkable. The easiest was to do the comparison in
+R is to use the Poisson trick, defining exposure as `time - t0` and
+treating `death` as Poisson with mean given by the product of the hazard
+rate (which is allowed to depend on duration) and exposure.
+
+### A Shared Frailty Model
+
+We now introduce a shared frailty term at the mother's level to allow
+for intra-family correlation in child survival. R allows fitting a
+frailty model via `coxph` by adding a `frailty()` term to the model
+formula. There is a new and more general approach in Therneau's `coxme`
+library, which includes the `coxme()` function to fit mixed Cox survival
+models with Gaussian random effects using a Laplace approximation. In
+this example the two approaches give very similar answers, but this is
+not always the case.
+
+Here's a run. All we do is add a term `(1 | momid)` to the model
+formula to indicate that we want a random intercept at the mother's
+level.
+
+```r
+	library(coxme)
+	sfrail <- coxme(Surv(t0, time, death) ~ mage + mage2 + borde + pdead +
+		p0014 + p1523 + p2435 + p36up + i011a1223 + i011a24p + i1223a24p +
+		(1 | momid),  data = gux)
+```
+
+Again, the results are remarkably similar to the estimates Guo and I
+obtained using a piecewise exponential model with gamma frailty, and
+which we have reproduced exactly using Stata. (This in spite of the fact
+that we have many ties, an average of almost ten deaths per distinct
+time.)
+
+Let us compare the fixed effect estimates obtained with and without
+frailty:
+
+```r
+	exp(cbind(coef(phaz), coef(sfrail)))               
+```
+
+The estimates of the covariate effects are remarkably stable. The one
+change worth mentioning is the coefficient for `pdead`, which changes
+sign, from 10.3% *higher* risk to 7.3% *lower* risk when the previous
+child died. This variable was clearly acting as a proxy for unobserved
+family effects.
+
+The estimate of the variance of the random effect is 0.178. Because a
+log normal frailty term can be written in the log-scale as *σ x* where
+*z* is standard normal, we can interpret the estimate in the same way as
+other Cox coefficients. Specifically, exponentiating the standard
+deviation of 0.421 to obtain 1.524 we learn that children in families
+with frailty one standard deviation above the mean have 52.4% higher
+risk than children in average families with the same observed covariate
+values.
+
+The piecewise exponential model with gamma frailty had a variance of
+0.214. To compare results note that when log-frailty is *N(0, σ^2^)*
+frailty itself has variance *(exp(σ^2^)-1) exp(σ^2^)*, so 0.178
+translates to 0.232, a much closer result. (This also affects the
+baseline hazard, as mean frailty is not one but *exp(σ^2^/2)* or 1.093
+in this case, but in a Cox model the point is moot.)
+
+By the way `coxph()` can also fit a model with shared frailty via
+penalized partial likelihood by adding the model formula term
+`frailty(momid)`, for which the default *is* gamma frailty. It estimates
+the variance as 0.2. For gamma frailty the penalized likelihood produces
+exact maximum likelihood estimates. Alternatively, one can fit a model
+using log-normal frailty by relying on a Laplace approximation to the
+marginal likelihood.
+
+Stata users: Stata can fit both models. The command `stcox` with the
+`efron` option gives exactly the same results as here for the first
+model. Adding the shared frailty option `shared(momid)` fits a model
+using gamma frailty, but is very slow, taking 46 minutes on my home
+machine (compared to about 20 seconds in R). The results, however, are
+very similar to those obtained here if you allow for the use of a
+different frailty distribution (and almost identical to the R results
+using gamma rather than lognormal frailty). In particular, the variance
+of gamma frailty is estimated as 0.210.
+

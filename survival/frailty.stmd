@@ -1,0 +1,151 @@
+
+## A Shared Frailty Model
+
+We will show how to fit a shared frailty model using data on child mortality in 
+Guatemala. The data come from a retrospective survey conducted in 1974-76 by the 
+*Instituto de Nutrición de Centroamérica y Panamá* (INCAP) and RAND, and include 
+data on multiple children per family.
+
+The data were first analyzed ignoring the clustering by 
+Pebley and Stupp (1987) Reproductive Patterns and Child Mortality in Guatemala. 
+*Demography*,24:43-60 [[1]](https://www.jstor.org/stable/2061507).
+(This link requires access to JSTOR.)
+
+The data were then reanalized by 
+Guo and Rodríguez (1992), Estimating a Multivariate Proportional Hazards Model 
+for Clustered Data Using the EM Algorithm, with an Application to Child Survival 
+in Guatemala, *Journal of the American Statistical Association*, 
+87:969-976 [[2]](https://www.jstor.org/stable/2290633), 
+using what we now call a shared frailty model.
+
+The dataset is available as a Stata file in long format (one record per child):
+
+```s
+	use https://data.princeton.edu/pop509/PebleyStupp, clear
+	describe
+```
+
+### A Piece-wise Exponential Model
+
+The first step is to reproduce exactly the results in Pebley and Stupp. We start 
+by `stset`ing the data, noting that `time`' is age at death or at interview, 
+`death` is an indicator of whether the child died, and `kidid`' uniquely 
+identifies each kid. (This is 10 times the `momid` in the original dataset plus 
+the kid number.)
+
+```s
+	stset time, fail(death) id(kidid)
+```
+
+Pebley and Stupp used a piece-wise exponential model where the hazard is constant 
+in intervals with boundaries at 1, 6, 12 and 24 months. We can fit that kind of 
+model in Stata using the standard Poisson trick, or using `streg`' to fit an 
+exponential model with dummy variables for the duration categories. We will do 
+the latter because it allows us to introduce gamma frailty later. 
+So we `stsplit` the dataset and generate dummies for all categories. 
+(Note that the original paper shows the hazard for each age, so we generate 
+dummies for all age categories and omit the constant.)
+
+```s
+	stsplit dur, at(0 1 6 12 24 60)
+	gen a0      = dur==0
+	gen a1to5   = dur==1
+	gen a6to11  = dur==6
+	gen a12to23 = dur==12
+	gen a24up   = dur==24
+	local age "a0 a1to5 a6to11 a12to23 a24up"
+```
+
+The model includes mother's age and age squared, a linear term on birth order, 
+and an indicator of whether the previous kid in the family died. There are also 
+indicators for the length of the previous birth interval with categories 
+0-14, 15-23, 24-35 and 36 or more, with first births serving as the reference cell. 
+We need to compute only one of these variables. It is useful to create macros for all:
+
+```s
+	gen mage2 = mage^2
+	local fixed "mage mage2 borde pdead"
+	local previous "p0014 p1523 p2435 p36up"
+```
+
+The model also includes a time-varying covariate with time-varying effects. The 
+variable in question is the length of the following birth interval, with 
+indicators `f0011`' for intervals under a year and `f1223`' for intervals of 
+one to two years. These dummies capture very short and short intervals, where a 
+child would face competition from a subsequent sibling. Pebley and Stupp treat 
+these as time-varying covariates because a sibling is assumed to affect the life 
+of the index child only after it is born. So we consider very short intervals 
+(< 12) only at ages 12 months and higher, and short intervals (12-23 months) 
+only at ages 24 months and higher. This is the time-varying part. But the effect 
+of very short intervals is also allowed to vary, with intervals < 12 having 
+different effects at ages 12-23 and 24 or more. This means that we need to 
+create three variables that interact the length of the following interval with 
+the age of the child:
+
+```s
+	gen i011a1223 = f0011 * (dur == 12)
+	gen i011a24p  = f0011 * (dur == 24)
+	gen i1223a24p = f1223 * (dur == 24)
+	local follow "i011a1223 i011a24p i1223a24p"
+```
+
+We are now ready to fit the model. You should verify that this reproduces exactly the results in Pebley and Stupp, which is quite remarkable.
+
+```s
+	streg `age' `fixed' `previous' `follow', dist(exponential) noconstant
+	estimates store pwe
+```
+
+### A Shared-Frailty Model
+
+We now introduce a shared frailty term at the mother's level to allow for 
+intra-family correlation in child survival. Following standard practice, 
+we assume that the frailty term has a gamma distribution independent of 
+observed covariates. Guo and Rodriguez derive an EM algorithm to fit this model 
+(and Guo's dissertation includes the Fortran program used to fit the model). 
+I now show how to reproduce their results using `streg`. All we need to do is 
+specify the frailty distribution and the variable that identifies the clusters:
+
+```s
+	streg `age' `fixed' `previous' `follow', dist(exponential) noconstant ///
+		frailty(gamma) shared(momid)
+	estimates store gamma
+```
+
+You may verify that the results agree quite closely with the paper. (The 
+labels for the complex interaction terms involving the following birth interval 
+are out of order in the published paper, but OK in Guo's dissertation.)
+
+The estimated variance of frailty of 0.21 (or 0.22 in the paper) implies modest 
+association between the lifetimes of siblings. Following Oakes, it corresponds 
+to a rank correlation of 0.09. Even this small association, however, translates 
+into substantial hazard ratios in the sense of Clayton. The conditional hazard 
+for a child knowing that a sibling died at age a is 22% higher than if the 
+sibling survived to age *a*, holding all covariates constant. Knowing that two 
+siblings died raises the hazard by 44%. Note that to test the significance of 
+the variance we have to be careful because the test is on a boundary of the 
+parameter space. In the JASA paper we obtain a t-ratio of 1.6 for the variance, 
+which agrees with Stata (0.214/0.135 = 1.6, although working in the log-scale 
+would be better). Stata's likelihood ratio test gives a chi-squared of 3.3 with 
+an estimated p-value of 0.035, essentially the same result.
+
+```s
+	estimates table pwe gamma, t eform
+```
+
+The other aspect of interest in the results is that the estimates of the covariate 
+effects are remarkably stable. The one change worth mentioning is the coefficient 
+for 'previous child died', which changes sign. This variable was clearly acting 
+as a proxy for unobserved family effects. Note also that the t-ratios for observed 
+covariate effects have generally declined in magnitude, which is consistent with 
+the notion that correlated observations have less information than independent 
+observations.
+
+Guo and Rodríguez also fit a non-parametric frailty model using a two-point 
+distribution. This distribution is not built into Stata, but the model can be 
+fit in Stata with only modest effort by following the method described in 
+Section 3.2 of the paper. Details are left as an exercise for the reader.
+
+We continue our analysis of this dataset with a discussion of 
+[model interpretation](frailty2), including calculation of predicted risks 
+and probabilities.

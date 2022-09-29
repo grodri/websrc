@@ -1,0 +1,117 @@
+
+## The Fine and Gray Model
+
+We conclude our competing risk analysis of supreme court tenure by
+fitting the Fine and Gray model, which focuses on the sub-hazard of each
+risk.
+
+We use the file saved earlier, [see](justices). Alternatively,
+you may rebuild the dataset using the first block of code in that page.
+
+.include srtabs
+
+We read the data and recode dates as before. (You can skip this step if
+you are runing this code in the same session as the previous page.)
+
+```s
+	use https://data.princeton.edu/pop509/justices2, clear
+```
+
+```r
+	justices <- read.csv("https://data.princeton.edu/pop509/justices2.csv")
+```
+
+### Fitting the Model
+
+[This model can be fit in Stata using the `stcrreg` command, with death
+as the event of interest as retirement as the competing event.]{.stata}
+[We fit the model using the `crr` function in the `cmprsk` package. The
+function requires a model matrix instead of a model formula. In our
+example the matrix is simple, for more general help type
+`?model.matrix`. I specify the codes for the event of interest and for
+censoring, although they happen to coincide with the defaults.]{.r}
+
+```s
+	stset tenure, fail(event == 1)
+	stcrreg age year, compete (event == 2)
+```
+
+```r
+	library(cmprsk)
+	fg <- crr(justices$tenure, justices$event, justices[,c("age", "year")],
+		failcode = 1, cencode = 0)
+	summary(fg)
+```
+
+We see that the probability that a judge will die while in the court
+doesn't appear to vary with age at appointment, but decreases with
+calendar year of appointment, so judges appointed more recently are less
+likely to die while serving in the court.
+
+### Predicted Cumulative Incidence
+
+We predict the CIF of death for a justice appointed at age 55 completed
+years in 1950 and 2000. The code below adds 0.5 to convert to exact ages
+and mid years.)
+
+```s
+	stcurve, cif at1(age = 55.5 year = 1950.5) at2(age = 55.5 year = 2000.5) ///
+		title("Cumulative incidence of death") xtitle(Tenure) ///
+		subtitle("Justice appointed at age 55 in 1950 and 2000") ///
+		text(.22 38 "2000") text(.316 38 "1950") legend(off)
+	graph export justices-ciffg.png, width(500) replace
+```
+
+![](justices-ciffg.png){.stata}
+
+[*Aside*: It is instructive to compute these curves 'by hand'. Because
+`predict` sets the covariates to zero, it will be advantageous to center
+age on 55.5 and year on 1950.5, as we did for the Cox model, so the
+predicted survival is our first scenario.]{.stata}
+
+```s
+	gen agec = age - 55.5
+	gen yearc = year - 1950.5
+	quietly stcrreg agec yearc, compete(event==2)
+	predict cif1950, basecif
+```
+
+[We know that this model is linear in the c-log-log scale, so we
+transform the CIF for 1950, add 50 times the year coefficient, and then
+transform back to probabilities.]{.stata}
+
+```s
+	gen cif2000 = invcloglog( cloglog(cif1950) + 50 * _b[yearc] )
+	sort _t
+	twoway line cif1950 _t, c(J) || line cif2000 _t, c(J) legend(off)
+	list _t cif1950 cif2000 in -1
+```
+
+```r
+	nd <- matrix(c(55.5, 55.5, 1950.5, 2000.5), 2, 2)
+	cifs <- predict(fg, nd)
+	cifd <- data.frame(
+		year = factor(rep(c("1950", "2000"), rep(nrow(cifs),2))),
+		time = c(cifs[,1], cifs[,1]),
+		cif = c(cifs[,2], cifs[,3])
+	)
+	library(ggplot2)
+	ggplot(cifd, aes(time, cif, color=year)) + geom_step()
+	ggsave("justices-ciffgr.png", width = 500/72, height = 400/72, dpi = 72)
+	cifs[nrow(cifs),]
+```
+
+![](justices-ciffgr.png){.r}
+
+We see that the probability of dying while serving in the court is
+declining over time net of age at appointment. For a justice appointed
+at age 55, the probability would be 31.6% if appointed in 1950 and 22.0%
+if appointed in the year 2000, assuming of course that current trends
+continue, so the model applies.
+
+Incidence functions can also be computed from Cox models, which in my
+view have a clearer interpretation, as shown [here](justices2). 
+The Cox proportional hazards approach leads to estimated probabilities 
+of death of 32.8% if appointed in 1950 and 22.6% if appointed in 2000. 
+Both methods agree in estimating the overall decline as about ten percentage 
+points.

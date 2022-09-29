@@ -1,0 +1,221 @@
+
+## Cox Models of Competing Risks
+
+We continue our competing risk analysis of supreme court tenure by
+introducing two covariates: `age`, how old the justice was when
+appointed, and `year`, the calendar year of appointment. We obviously
+expect survival to improve over time and decline with the age of the
+justice at appointment, but it is not clear whether the trend over time
+is to retire earlier or later.
+
+We use the file created in the [previous step](justices), which I have
+saved on this website.
+
+.include srtabs
+
+```s
+	use https://data.princeton.edu/pop509/justices2, clear
+```
+
+```r
+	justices <- read.csv("https://data.princeton.edu/pop509/justices2.csv")
+```
+
+We can now run a Cox regression looking at overall tenure in the court
+
+```s
+	stset tenure, fail(event)
+	stcox age year, efron
+```
+
+```r
+	library(survival)
+	coxb <- coxph(Surv(tenure, event > 0) ~ age + year, data=justices)
+	coef(summary(coxb))    
+```
+
+We see that the risk of leaving the court at any length of service is
+8.5% higher for every year of age at appointment, and just over half a
+percent lower per calendar year. This, of course, confounds trends in
+mortality with trends in retirement.
+
+To look at the risk of death we use death as the event indicator,
+treating everything else as censoring
+
+```s
+	streset, fail(event == 1) // just death
+	stcox age year, efron
+```
+
+```r
+	coxd <- coxph(Surv(tenure, event == 1) ~ age + year, data=justices)
+	coef(summary(coxd))
+```
+
+We see that the risk of death while in the court is about 7% higher per
+year of age at appointment, and declines just over one percent per
+calendar year of appointment, reflecting general improvements in
+mortality over time. Note that using dates in days we had no ties.
+
+To look at the risk of retirement we change the event of interest
+
+```s
+	streset , fail(event == 2) // just retirement
+	stcox age year, efron
+```
+
+```r
+	coxr <- coxph(Surv(tenure, event == 2) ~ age + year, data=justices)
+	coef(summary(coxr))
+```
+
+We see an increase in the risk of retirement of 10.6% per year of age at
+appointment, and essentially no trend over time, so the risk of
+retirement depends only on starting age and not on calendar year of
+appointment.
+
+### Incidence from Cox Models
+
+The next step will be to calculate cumulative incidence functions based
+on the Cox models for cause-specific hazards. In the next section we
+will use the Fine and Gray model.
+
+The aim is to compare the cumulative incidence of death for justices
+appointed at age 55 in 1950 and 2000. For convenience I will center age
+on 55 and calendar year on 1950. In both cases I add 0.5 to convert to
+exact age and the middle of the year. We start by fitting a Cox model to
+the risk of death
+
+```s
+	gen agec = age - 55.5
+	gen yearc = year - 1950.5
+	streset, fail(event == 1)
+	quietly stcox agec yearc
+```
+
+```r
+	library(dplyr)
+	justices <- mutate(justices,
+		agec = age - 55.5,
+		yearc = year - 1950.5
+	)
+	coxd <- coxph(Surv(tenure, event == 1) ~ agec + yearc, data=justices)
+```
+
+The next task is to calculate the baseline hazard. I will do this by
+calculating the Nelson-Aalen estimate of the cumulative hazard and then
+differencing it. I think this is conceptually clearer, and yields
+results that are very similar to an alternative calculation based on the
+Kalbfleisch-Prentice estimate of the survival function. I also calculate
+the hazard for a judge appointed 50 years later using the estimated
+coefficient from the Cox regression.
+
+```s
+	predict H0d, basech
+	gsort +_t -_d
+	gen h0d = H0d - H0d[_n - 1]
+	replace h0d = H0d in 1
+	gen h1d = h0d*exp(50 * _b[yearc])
+```
+
+```r
+	sfd <- survfit(coxd, newdata=list(agec = 0, yearc = 0))
+	cif <- data.frame(time = sfd$time, 
+		h0d = diff(c(0, sfd$cumhaz)))
+	cif <- mutate(cif, h1d = h0d * exp(50 * coef(coxd)["yearc"]))
+```
+
+The next step is to do exactly the same calculations for the risk of
+retirement
+
+```s
+	streset, fail(event == 2)
+	quietly stcox agec yearc    
+	predict H0r, basech
+	gsort +_t -_d
+	gen h0r = H0r - H0r[_n - 1]
+	replace h0r = H0r in 1
+	gen h1r = h0r * exp(50 * _b[yearc])
+```
+
+```r
+	coxr <- coxph(Surv(tenure, event == 2) ~ agec + yearc, data=justices)
+	sfr <- survfit(coxr, newdata=list(agec = 0, yearc = 0))
+	if(!all(sfr$time == sfd$time)) stop("times differ") 
+	cif <- mutate(cif,
+		h0r = diff(c(0, sfr$cumhaz)),
+		h1r = h0r * exp(50 * coef(coxr)["yearc"])
+	)    
+```
+
+We can now add the hazards of death and retirement and calculate the
+overall survival probability as well as the incidence functions, all
+from first principles. [For these calculations we need to retain just
+one observation per distinct failure time and make sure the hazards for
+all causes are attached to the same observation, which we do by taking
+the maximum for each value of `_t`. Hat tip to Shawna Metzger, who
+alerted me to this issue and provided the solution. In this dataset
+there is only one tie between a death and a retirement at 1832 days or
+5.0157 years. In the original dataset there were many ties, as dates
+were coded in years only.]{.stata}
+
+```s
+	foreach hazard in h0d h0r h1d h1r {
+		capture drop temp
+		egen temp = max(`hazard'), by(_t)
+		quietly replace `hazard' = temp
+	}
+	egen first = tag(_t)
+	drop if !first
+```
+
+We then calculate the incidence functions of death for 1950 and 2000,
+summing the product of the probabilities of surviving all causes of
+attrition up to each time and then failing due to each cause:
+
+```s
+	forvalues y = 0/1 {
+		gen h`y' = h`y'd + h`y'r
+		gen S`y' = exp(-sum(h`y')) // Aalen 
+		gen c`y' = S`y'[_n-1] * h`y'd
+		replace c`y' = h`y'd in 1
+		gen I`y' = sum(c`y')
+	}
+	line I0 I1 _t, connect(J J) ///
+		title("Cumulative incidence of death") xtitle(Tenure) ///
+		subtitle("Justice appointed at age 55 in 1950 and 2000") ///
+		note(Based on Cox model of cause-specific hazards) ///
+		text(.226 38 "2000") text(.328 38 "1950") legend(off)
+	graph export justices-cifcox.png, width(500) replace
+	list I0 I1 in -1
+```
+
+![](justices-cifcox.png){.stata}
+
+```r
+	n <- nrow(cif)
+	cif <- mutate(cif,
+		S0 = exp(-cumsum(h0d + h0r)),
+		S1 = exp(-cumsum(h1d + h1r)),
+		I0d = cumsum(c(1, S0[-n]) * h0d),
+		I1d = cumsum(c(1, S1[-n]) * h1d)
+	)
+	cif[n, c("time", "I0d", "I1d")]
+	library(ggplot2)
+	g <- ggplot(cif, aes(time, I0d)) + geom_line() + geom_line(aes(time, I1d)) +
+	ggtitle("Incidence of Death For Justices Appointed at Age 55 in 1950 and 2000") 
+	g + annotate("text", x = 38, y=max(cif$I0d), label="1950") +
+		annotate("text", x = 38, y=max(cif$I1d), label="2000") 
+	ggsave("justices-cifcoxr.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](justices-cifcoxr.png){.r}
+
+We see that the probability of dying while serving in the supreme court
+for a judge appointed at age 55 has fallen from 32.8% in 1950 to 22.6%
+in 2000, assuming of course that the trends continue so the model still
+applies.
+
+*Note*. You may be interested to know that using an approach analogous
+to the Kaplan-Meier estimate yields the same probabilities quoted above
+to three decimal places.

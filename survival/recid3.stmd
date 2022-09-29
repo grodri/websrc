@@ -1,0 +1,120 @@
+
+## Continuous and Discrete Time Models
+
+Let's have another look at the recidivism data. We will split duration
+into single years with an open-ended category at 5+ and fit a piecewise
+exponential model with the same covariates as Wooldridge.
+
+We will then treat the data as discrete, assuming that all we know is
+that recidivism occured somewhere in the year. We will fit a binary data
+model with a logit link, which corresponds to the discrete time model,
+and using a complementary-log-log link, which corresponds to a grouped
+continuous time model.
+
+.include srtabs
+
+### A Piece-wise Exponential Model
+
+```s
+	use https://www.stata.com/data/jwooldridge/eacsap/recid, clear
+	gen fail = 1-cens
+	gen id = _n
+	stset durat, fail(fail) id(id)
+	stsplit year, at(12 24 36 48 60 100) // max is 81
+	replace year = year/12 
+	local x workprg priors tserved felon alcohol drugs ///
+		black married educ age
+	streg i.year `x', distribution(exponential) nohr
+	estimates store pwe
+```
+
+```r
+	library(haven)
+	library(survival)
+	library(dplyr)
+	recid <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/recid.dta")	
+	recid$fail <- 1 - recid$cens
+	recidx <- survSplit(recid, cut = seq(12, 60, 12), 
+		start = "t0", end = "durat", event = "fail", episode = "interval")
+	labels <- paste("(",seq(0,60,12),",",c(seq(12,60,12),81), "]",sep="")	
+	recidx <- mutate(recidx, 
+		exposure = durat - t0, 
+		interval = factor(interval + 1, labels = labels))
+	mf <-  fail ~  interval + workprg + priors + tserved + felon +
+		alcohol + drugs + black + married + educ + age
+	pwe <- glm(mf, offset = log(exposure), data = recidx, family = poisson)
+	coef(summary(pwe))
+```
+
+The estimates are very close to those obtained using a Cox model.
+
+### A Logit Model
+
+For a discrete-time survival analysis we have to make sure we only
+include intervals with complete exposure, where we can classify the
+outcome as failure or survival. The convicts were released between July
+1, 1977 and June 30, 1978 and the data were collected in April 1984, so
+the length of observation ranges between 70 and 81 months. We therefore
+restrict our attention to 5 years or 60 months. (We could go up to 6
+years or 72 months for some convicts, but unfortunately we don't have
+the date of release, so we can't identify these cases and must censor
+everyone at 60.)
+
+```s
+	drop if _t0 >= 60
+	logit _d i.year `x'
+	estimates store logit
+```
+
+```r
+	recidx <- filter(recidx, interval != "(60,81]")
+	logit <- glm(mf, data = recidx, family = binomial)  # no offset
+	coef(summary(logit))
+```
+
+We will compare all estimates below.
+
+### A Complementary Log-log Model
+
+Finally we use a complementary log-log link
+
+```s
+	glm _d i.year `x', family(binomial) link(cloglog)
+	estimates store cloglog
+```
+
+```r
+	cloglog <- glm(mf, data = recidx, family = binomial(link = cloglog))
+	coef(summary(cloglog))
+```
+
+### Comparison of Estimates
+
+All that remains is to compare the estimates
+
+```s
+	estimates table pwe cloglog logit, eq(1:1:1)
+```
+
+```r
+	cbind(coef(pwe)[-6], coef(cloglog), coef(logit))
+```
+
+As one would expect, the estimates of the relative risks based on the
+c-log-log link are closer to the continuous time estimates than those
+based on the logit link.
+
+This result makes sense because the piece wise exponential and c-log-log
+link models are estimating the same continuous time hazard, one from
+continuous and one from grouped data, while the logit model is
+estimating a discrete time hazard.
+
+Recall that in a continuous time model the relative risk multiplies the
+hazard or instantaneous failure rate, whereas in a discrete time logit
+model it multiplies the conditional odds of failure at a given time (or
+in a given time interval) given survival to that time (or the start of
+the interval). Interpretation of the results should take this fact into
+account.
+
+All three approaches, however, lead to similar predicted survival
+probabilities.

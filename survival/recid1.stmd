@@ -1,0 +1,233 @@
+## Weibull and Log-Normal Models
+
+The dataset considered here is analyzed in Wooldridge (2002) and
+credited to Chung, Schmidt and Witte (1991). The data pertain to a
+random sample of convicts released from prison between July 1, 1977 and
+June 30, 1978. Of interest is the time until they return to prison. The
+information was collected retrospectively by looking at records in April
+1984, so the maximum possible length of observation is 81 months.
+
+Wooldridge fits Weibull and log-normal models using the following
+predictors:
+
+  Variable   Description
+  ---------- -------------------------------------------------
+  workprg    an indicator of participation in a work program
+  priors     the number of previous convictions
+  tserved    the time served rounded to months
+  felon      and indicator of felony sentences
+  alcohol    an indicator of alcohol problems
+  drugs      an indicator of drug use history
+  black      an indicator for African Americans
+  married    an indicator if married when incarcerated
+  educ       the number of years of schooling, and
+  age        in months
+
+We will reproduce his results using R and Stata. The data are available
+in binary format from the Stata website and consists of 1445
+observations on 18 variables. The duration variable is called `durat`
+and represents time in months until return to prison or end of follow
+up. The censoring indicator is called `cens` and is coded 1 if the
+observation was censored (i.e. the individual had *not* returned to
+prison).
+
+.include srtabs
+
+We create a new variable `fail` coded 1 for failures.
+
+```s
+    use https://www.stata.com/data/jwooldridge/eacsap/recid, clear
+    desc, short
+    gen fail = 1 - cens
+```
+
+```r
+    library(haven)
+    library(dplyr)
+    recid <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/recid.dta")
+    recid <- mutate(recid, fail = 1 - cens)
+    head(recid)
+```
+
+### A Proportional Hazards Weibull Model
+
+Let us first fit a proportional hazards model with a Weibull baseline,
+[using `stset` to set the data and `survreg` to fit the model. To avoid
+repetition we will save the predictors in a macro.]{.stata} [which we
+can do using `survreg` with `dist` set to "weibull". For convenience we
+save the model formula so we can reuse it later.]{.r}
+
+```s
+    stset durat, failure(fail)
+    local predictors workprg priors tserved felon alcohol drugs ///
+        black married educ age
+    streg `predictors', distrib(weibull) nolog
+```
+
+::: stata
+By default Stata exponentiates the coefficients to show relative risks.
+Use the option `nohr` for *no* hazard ratios to obtain the coefficients.
+:::
+
+```s
+     streg, nohr
+```
+
+```r
+    library(survival)
+    mf <- Surv(durat, fail) ~  workprg + priors + tserved + felon +
+        alcohol + drugs + black + married + educ + age
+    wf <- survreg(mf, data=recid, dist="weibull")
+```
+
+::: r
+By default R reports coefficients in the accelerated failure time
+metric. I wrote a simple function to convert them to a proportional
+hazards metric, which you can download from this website as shown below.
+I also work with *p = 1/scale*.
+:::
+
+```r
+    source("https://data.princeton.edu/pop509/aft2ph.txt")
+    phfit <- aft2ph(wf); phfit
+```
+
+This reproduces Table 22.1 in Wooldridge. <!-- 20.1 in first edition -->
+All but three of the predictors have significant coefficients, the exceptions 
+being participation in a work program, marital status, and education.
+
+::: r
+To obtain *hazard ratios* we exponentiate the coefficients. We also
+report the Weibull parameter *p*, while R uses scale = 1/p.
+:::
+
+```r
+    transmute(phfit, term, hazard.ratio = exp(estimate))
+    exp(tail(phfit,1)$estimate)
+```
+
+The Weibull parameter *p* is 0.8, indicating that the risk of recidivism
+declines over time, about 21% per month. The hypothesis that the risk is
+constant over time would be soundly rejected.
+
+The exponentiated coefficient of drugs indicates that former inmates
+with a history of drug use have 32.5% higher risk or returning to jail
+at any given time than peers with identical characteristics but no
+history of drug use.
+
+### Accelerated Failure Time Weibull
+
+We can also work with the Weibull model in an accelerated failure time
+framework, [which we can do by simply adding the `time` option:]{.stata}
+[which is in fact the default in R. We'll use the `summary()` function.
+(An alternative is to use `tidy` to produce a data frame.]{.r}
+
+```s
+    streg `predictors', distrib(weibull) time nolog
+```
+
+```r
+    summary(wf)
+```
+
+The substantive results are the same as before, which is not surprising
+given that it is really the same model. You may want to verity that the
+AFT parameters are exactly the same as the PH parameters with opposite
+sign and divided by *p*. For example the coefficient for drugs is
+-0.28/0.8 = -0.35.
+
+The coefficients may be exponentiated, which allows interpreting them in
+terms of *time ratios*. [You can do this in Stata using the `tr` option.
+We will focus on one coefficient.]{.stata}
+
+```r
+    exp(coef(wf))
+```
+
+Exponentiating the drug coefficient that see that former inmates with a
+history of drug use spend 29% less time out of prison than peers with
+the same observed characteristics by no history of drug use. This is
+easier to see substracting one from the exponentiated coefficient
+
+```s
+    di exp(_b[drugs]) - 1
+```
+
+```r
+    exp(coef(wf)["drugs"]) - 1
+```
+
+We can also say that time outside of prison passes 42% faster for former
+inmates with a history of drug use than for those without, everything
+else being equal, which you can verify by changing signs and
+exponentiating:
+
+```s
+    di exp(-_b[drugs]) - 1
+```
+
+```r
+    exp(-coef(wf)["drugs"]) - 1
+```
+
+The two interpretations are, of course, equivalent.
+
+### A Log-Normal AFT Model
+
+The Weibull model allows the hazard to increase or decrease with time,
+but at a constant rate. Wooldridge notes that the log-normal
+distribution provides a better fit to the data. We can fit a log-normal
+model with the same tools, just by changing the distribution to
+"lognormal".
+
+```s
+    streg `predictors', distrib(lognormal) nolog
+```
+
+::: stata
+We do not need to specify `time`, as this distribution is only available
+in the AFT metric.
+:::
+
+```r
+    lnf <- survreg(mf, data=recid, dist="lognormal")  
+    summary(lnf)
+```
+
+We see that the log-likelihood is indeed higher for the log-normal
+model, [-1597.1 compared to -1633.0]{.stata}[-3156.1 compared to
+-3192.1]{.r} for the Weibull, so we now have a better fit to the data.
+
+You may be interested to know that Stata and R report different
+log-likelihoods. For example the log-normal log-likelihood is -1597.1 in
+Stata and -3156.1 in R. This is because R works with the distribution of
+*time* and Stata with the distribution of *log(time)*. The difference
+turns out to be the Jacobian of the transformation, which is the sum of
+*log(t)* over all failures, or 1559.1. Differences between
+log-likelihood are not affected by this constant term.
+
+Most of the effects are robust to the choice of distribution, but note
+that the protective effect of marriage is now significant. The
+coefficient for drugs, at -0.30, is smaller in magnituded and less
+significant than before.
+
+### Other Parametric Models
+
+Fitting a generalized gamma model leads to similar conclusions, except
+that the effect of drugs is no longer significant. This result suggest
+that there may be an interaction between drug history and duration, as
+the effect depends on how the hazard is specified. We will return to
+this issue later.
+
+The generalized gama model is [available in Stata as part of
+`streg`.]{.stata} [*not* available in R's `survival` package, but you
+will find it in the package `flexsurv`, which also allows fitting
+Gompertz models.]{.r}
+
+### References
+
+Wooldridge, Jeffrey M. (2010). *Econometric Analysis of Cross Section
+and Panel Data*. 2nd Edition. Cambridge, Massachusetts: The MIT Press.
+
+Chung, C-F, P. Schmidt and A.D. Witte (1991). "Survival Analysis: A
+Survey". *Journal of Quantitative Criminology* **7**:59-98.
