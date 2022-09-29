@@ -18,7 +18,8 @@ this course:
 - [Survival Analysis](https://data.princeton.edu/pop509)
 
 The logs show how to conduct statistical analyses using 
-Stata or R, with tabs to choose your statistical software.
+Stata or R, with tabs to choose your statistical software,
+and were written using `markstat`.
 
 Coming Soon: couses on Generalized Linear Models, 
 Multilevel Models, and Demographic Methods.
