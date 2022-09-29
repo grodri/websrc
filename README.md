@@ -21,5 +21,5 @@ The logs show how to conduct statistical analyses using
 Stata or R, with tabs to choose your statistical software,
 and were written using `markstat`.
 
-Coming Soon: couses on Generalized Linear Models, 
+Coming Soon: courses on Generalized Linear Models, 
 Multilevel Models, and Demographic Methods.
