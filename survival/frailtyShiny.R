@@ -1,5 +1,5 @@
 # Proportional Hazards with Frailty
-# constant hazard is 2 or 1 with gamma unobserved heterogeneity
+# Constant hazard is 2 or 1 with gamma unobserved heterogeneity
 # G. Rodríguez / 5 March 2017
 
 library(shiny)

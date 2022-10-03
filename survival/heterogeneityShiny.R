@@ -1,5 +1,6 @@
 # Unobserved Heterogeneity
-# G. Rodríguez / 2 march 2017
+# A mortality crossover and unobserved frailty
+# G. Rodríguez / 2 March 2017
 
 library(ggplot2)
 library(dplyr)
