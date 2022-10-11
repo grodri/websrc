@@ -13,8 +13,9 @@ combining Markdown annotations and Stata code, described
 written using `rmarkdown`.
 
 You will also find the source code for the computing logs for 
-this course:
+these courses:
 
+- [Multilevel Models](https://data.princeton.edu/pop510)
 - [Survival Analysis](https://data.princeton.edu/pop509)
 
 The logs show how to conduct statistical analyses using 
@@ -22,4 +23,4 @@ Stata or R, with tabs to choose your statistical software,
 and were written using `markstat`.
 
 Coming Soon: courses on Generalized Linear Models, 
-Multilevel Models, and Demographic Methods.
+and Demographic Methods.
