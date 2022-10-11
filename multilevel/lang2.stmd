@@ -1,0 +1,270 @@
+
+## Random Intercepts and Slopes
+
+We continue our analysis of the Snijders and Bosker data. This time we
+will consider verbal IQ as a predictor of language scores. Here are the
+data.
+
+.include srtabs
+
+```s
+	use https://data.princeton.edu/pop510/snijders, clear
+```
+
+```r
+	library(haven)
+	snijders <- read_dta("https://data.princeton.edu/pop510/snijders.dta")
+```
+
+To simplify interpretation we will center verbal IQ on the overall mean.
+[We also compute the number of observations per school and flag the
+first, as we did before. ]{.stata}
+
+```s
+	sum iq_verb
+	gen iqvc = iq_verb - r(mean)
+	egen sn = count(langpost), by(schoolnr)
+	bysort schoolnr : gen first=_n==1
+```
+
+```r
+	library(dplyr)
+	snijders <- mutate(snijders, iqvc = iq_verb - mean(iq_verb))
+```
+
+### School Regressions
+
+Our first step will be to run a separate regression for each school,
+saving the intercept and slope. [This is easy to do with `statsby`,
+creating variables `sa` and `sb` in a new Stata dataset called "ols",
+which we then merge with the current dataset. The final step is to plot
+the school-specific regression lines]{.stata} [To do this we take
+advantage of `dplyr`'s `do()` to fit the models, extract the
+coefficients, join them with the data, and plot the lines.]{.r}
+
+```s
+	statsby sa=_b[_cons] sb=_b[iqvc], by(schoolnr) saving(ols, replace) ///
+	  : regress langpost iqvc
+	sort schoolnr
+	merge m:1 schoolnr using ols
+	drop _merge
+	gen yhat = sa + sb * iqvc
+	sort schoolnr iqvc
+	line yhat iqvc, connect(ascending) title(School Regressions)
+	graph export fig1lang2.png, width(500) replace 
+```
+
+![](fig1lang2.png){.img-responsive .img-center .stata}
+
+```r
+	library(ggplot2)
+	fits <- group_by(snijders, schoolnr) |> 
+	  do( lf = lm(langpost ~ iqvc, data = .) )
+	ols <- data.frame(id = fits[[1]], t(sapply(fits[[2]],coef)))
+	names(ols) <- c("schoolnr", "sa", "sb")
+	snijders <- left_join(snijders, ols, by = "schoolnr") |> 
+	  mutate(fv = sa + sb * iqvc)		
+	ggplot(snijders, aes(iqvc, fv, group= schoolnr)) + geom_line() + 
+	  ggtitle("School Regressions")
+	ggsave("fig1lang2r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig1lang2r.png){.img-responsive .img-center .r} 
+
+We will compare these lines with the Bayesian
+estimates based on random intercept and random slope models.
+
+### Random Intercepts
+
+We now consider a model where each school has its onw intercept, but
+these are drawn from a normal distribution with mean α and standard
+deviation σ~a~. [We will use `xtmixed` instead of `xtreg` so we can get
+BLUPS.]{.stata}
+
+```s
+	xtmixed langpost iqvc || schoolnr: , mle
+```
+
+```r
+	library(lme4)
+	ri <- lmer(langpost ~ iqvc + (1 | schoolnr), data = snijders, REML = FALSE)
+	ri
+```
+
+The expected language score for a kid with average verbal IQ averages
+40.6 across all schools, but shows substantial variation from one school
+to another, with a standard deviation of 3.1. The common slope is
+estimated as a gain of 2.49 points in language score per point of verbal
+IQ. (The standard deviation of verbal IQ is 2.07, so one standard
+deviation of verbal IQ is associated with 5.15 points in language score.
+This gives us a good idea of the relative importance of observed and
+unobserved effects.)
+
+Next we compute fitted lines and estimate the random effects. As a check
+we verify that we can reproduce the fitted values "by hand" using the
+fixed and random coefficients.
+
+```s
+	predict yhat1, fitted // y-hat for model 1
+	predict ra1, reffects // residual intercept for model 1
+	gen check = (_b[_cons] + ra1) + _b[iqvc]*iqvc 
+	list yhat1 check in 1/5
+```
+
+```r
+	snijders <- mutate(snijders, fv1 = predict(ri))
+	b <- fixef(ri)
+	re <- ranef(ri)$schoolnr[,1]
+	check <- b[1] + re[snijders$schoolnr] + b[2] * snijders$iqvc
+	cbind(snijders$fv1[1:5], check[1:5])
+```
+
+Next we plot the fitted regression lines and the two estimates of the
+school intercepts
+
+```s
+	line yhat1 iqvc, connect(ascending) title(Random Intercept)
+	graph export fig2lang2.png, width(500) replace
+	gen sa1 = _b[_cons] + ra1 // school intercept based no model 1
+	twoway (scatter sa1 sa ) (function y=x, range(30 48)) ///
+	, legend(off) ytitle(BLUP) xtitle(ML) title(School Intercepts)
+	graph export fig3lang2.png, width(500) replace
+	list schoolnr sn if sa < 30 & first
+```
+
+![](fig2lang2.png){.img-responsive.img-center .stata}
+
+```r
+	ggplot(snijders, aes(iqvc, fv1, group = factor(schoolnr))) + geom_line() +
+	  ggtitle("Random Intercept")
+	ggsave("fig2lang2r.png", width = 500/72, height = 400/72, dpi = 72)
+	ols <- mutate(ols, sab = b[1] + re)
+	ggplot(ols, aes(sa, sab)) + geom_point() + 
+	  geom_abline(intercept=0, slope=1) + ggtitle("School Intercepts")
+	ggsave("fig3lang2r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig2lang2r.png){.img-responsive .img-center .r} 
+
+We see that all the lines are parallel as one would expect.
+
+![](fig3lang2.png){.img-responsive .img-center .stata}
+
+![](fig3lang2r.png){.img-responsive .img-center .r} 
+
+We also note that the intercepts have shrunk, particularly for the four 
+small schools with very low language scores.
+
+### Random Slopes
+
+Our next model treats the intercept and slope as observations from a
+bivariate normal distribution with mean *α,β* and variance-covariance
+matrix with elements *σ^2^~a~*, *σ^2^~b~*, and *σ~ab~*. [In Stata you
+must specify `covariance(unstructured)`. ]{.stata}
+
+```s
+	xtmixed langpost iqvc || schoolnr: iqvc, mle covariance(unstructured)
+```
+
+```r
+	rs <- lmer(langpost ~ iqvc + (iqvc | schoolnr), data=snijders, REML=FALSE)
+	rs
+```
+
+The expected language score for a child with average IQ now averages
+40.7 across schools, with a standard deviation of 3.1. The expected gain
+in language score per point of IQ averages 2.5, almost the same as
+before, with a standard deviation of 0.46. The intercept and slope have
+a negative correlation of -0.82 across schools, so schools with higher
+language scores for a kid with average verbal IQ tend to show smaller
+average gains.
+
+The next step is to predict fitted values as well as the random effects.
+We verify that we can reproduce the fitted values "by hand" and the
+plot the fitted lines
+
+```s
+	predict yhat2, fitted           // yhat for model 2
+	predict rb2 ra2, reffects       //residual  slope and intercept for model 2
+	capture drop check
+	gen check = (_b[_cons] + ra2) + (_b[iqvc] + rb2)*iqvc
+	list yhat2 check in 1/5
+	line yhat2 iqvc, connect(ascending)
+	graph export fig4lang2.png, width(500) replace
+```
+
+![](fig4lang2.png){.img-responsive .img-center .stata}
+
+```r
+	snijders <- mutate(snijders, fv2 = predict(rs))
+	re <- ranef(rs)$schoolnr
+	b <- fixef(rs)
+	map <- snijders$schoolnr
+	check <- (b[1] + re[map, 1]) + (b[2] + re[map ,2]) * snijders$iqvc
+	cbind(snijders$fv2[1:5], check[1:5])
+	ggplot(snijders, aes(iqvc, fv2, group=schoolnr)) + geom_line() +
+	  ggtitle("Random Slopes")
+	ggsave("fig4lang2r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig4lang2r.png){.img-responsive .img-center .r} 
+
+The graph of fitted lines shows clearly how school differences are more 
+pronounced at lower than at higher verbal IQs.
+
+Next we compare the latest Bayesian estimates with the within-school
+regressions to note the shrinking typical of Bayes methods
+
+```s
+	gen sa2 = _b[_cons] + ra2
+	gen sb2 = _b[iqvc]  + rb2
+	twoway scatter sa2 sa , title(Intercepts) name(a, replace)
+	scatter sb2 sb, title(Slopes) name(b, replace)
+	graph combine a b, title(Bayesian and Within-School Estimates) ///
+	  xsize(6) ysize(3)
+	graph export fig5lang2.png, width(720) replace
+```
+
+![](fig5lang2.png){.img-responsive .img-center .stata}
+
+```r
+	library(gridExtra)
+	ols <- mutate(ols, sa2 = b[1] + re[,1], sb2 = b[2] + re[,2])
+	g1 <- ggplot(ols, aes(sa, sa2)) + geom_point() + ggtitle("Intercepts")
+	g2 <- ggplot(ols, aes(sb, sb2)) + geom_point() + ggtitle("Slopes")
+	g <- arrangeGrob(g1, g2, ncol=2)
+	ggsave("fig5lang2r.png", width = 10, height = 5, dpi = 72)
+```
+
+![](fig5lang2r.png){.img-responsive .img-center .r} 
+
+We can also check how much individual schools are affected. Try school 40 
+for little change, or schools 2, 47, 103 or 258 for substantial change. 
+Here is a plot of school 2:
+
+```s
+	gen use = schoolnr==2
+	twoway  (scatter langpost iqvc if use) ///      scatterplot
+	  (line yhat  iqvc if use, lpat(dot)) ///         within school
+	  (line yhat2 iqvc if use, lpat(dash)) ///                mixed model
+	  ( function y=_b[_cons] + _b[iqvc]*x, range(-5 1) ) , /// average
+	  legend(order(2 "within" 3 "EB" 4 "Avg") cols(1) ring(0) pos(5))
+	graph export fig6lang2.png, width(500) replace
+```
+
+![](fig6lang2.png){.img-responsive .img-center .stata}
+
+```r
+	school2 <- filter(snijders, schoolnr ==2) |>
+	  mutate(avg = b[1] + b[2] * iqvc)
+	ggplot(school2, aes(iqvc, langpost)) + geom_point() +
+	  geom_line(aes(iqvc, fv,  color="Within")) + 
+	  geom_line(aes(iqvc, fv2, color="EB")) +
+	  geom_line(aes(iqvc, avg, color="Average")) +
+	  guides(color=guide_legend(title="Line"))
+	ggsave("fig6lang2r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig6lang2r.png){.img-responsive .img-center .r} 
+
+The next step will be to consider a contextual or school-level predictor.

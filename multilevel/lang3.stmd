@@ -1,0 +1,208 @@
+
+## Modeling Intercepts and Slopes
+
+We conclude our analysis of the Snijders and Bosker data by letting the
+intercept and slopes depend on a school-level predictor. Here are the
+data one last time.
+
+.include srtabs
+
+```s
+	use https://data.princeton.edu/pop510/snijders, clear
+	quietly sum iq_verb
+	gen iqvc = iq_verb - r(mean)
+```
+
+```r
+	library(haven)
+	library(dplyr)
+	snijders <- read_dta("https://data.princeton.edu/pop510/snijders.dta") |>
+	  mutate(iqvc = iq_verb - mean(iq_verb))
+```
+
+### A Level-2 Predictor: School SES
+
+A useful exploratory step is to plot the estimated intercept and slope
+residuals obtained in the last model against potential predictors at the
+school level. Here an obvious candidate is school SES. As usual we will
+center this variable. We also store the school-level standard deviation
+for later use.
+
+```s
+	bysort schoolnr: gen first = _n==1
+	sum schoolses if first // just one      
+	gen sesc = schoolses - r(mean)
+	scalar sesc_sd = r(sd)
+```
+
+```r
+	ses <- (group_by(snijders, schoolnr) |> slice(1))$schoolses
+	school <- data.frame(meanses = mean(ses), sdses = sd(ses))
+	snijders <- mutate(snijders, sesc = schoolses - school$meanses)   
+```
+
+We are now ready to fit the model. We specify all the fixed effects
+first, including a cross-level interaction to let both the intercept and
+slope depend on school-level SES. These are followed by the random
+effects, which consist of the constant and the slope for verbal IQ:
+
+```s
+	mixed langpost iqvc sesc c.iqvc#c.sesc || schoolnr: iqvc ///
+	, mle covariance(unstructured)
+```
+
+```r
+	library(lme4)
+	cli <- lmer(langpost ~ iqvc*sesc + (1 + iqvc | schoolnr), 
+	  data = snijders, REML = FALSE)
+	cli
+```
+
+We find that the relationship between language scores and verbal IQ
+varies substantially from school to school, depending on the school's
+SES and unobserved factors.
+
+For the average school at mean SES, the mean language score for a child
+with average verbal IQ is 40.71 and increases an average of 2.52 points
+per point (or 5.20 points per standard deviation) of verbal IQ.
+
+The expected score for an average kid increases 0.24 points per point
+(or about one point per standard deviation) of school SES, but this
+effect has a standard deviation across schools of 2.87 points, so there
+remain substantial unobserved school effects.
+
+The average gain in language scores per point of verbal IQ decreases
+0.05 points per point (or about 0.2 points per standard deviation) of
+school SES. This effect has a standard deviation of 0.39 across schools.
+Comparatively speaking, SES explains a bigger share of the variation in
+slopes than in intercepts.
+
+Finally, we note that the random intercept and slope have a negative
+correlation of -0.80. This means that schools than tend to show higher
+language scores for average kids also tend to show smaller gains in
+language scores per point of IQ.
+
+### Fitted Lines
+
+Next we will compute the predicted random effects and regression lines
+and plot the results:
+
+```s
+	predict yhat3, fitted
+	sort schoolnr iqvc
+	line yhat3 iqvc, connect(ascending) ///
+	  title(Random Coefficient Model with SES) ///
+	  xtitle(Verbal IQ (centered)) ytitle(Language Score)
+	graph export fig1lang3.png, width(500) replace
+```
+
+![](fig1lang3.png){.img-responsive .img-center .stata}
+
+```r
+	library(ggplot2)
+	snijders <- mutate(snijders, yhat3 = predict(cli))
+	ggplot(group_by(snijders, schoolnr), aes(iqvc, yhat3, group=schoolnr)) + 
+	  geom_line() + ggtitle("Random Coefficient Model with SES")
+	ggsave("fig1lang3r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig1lang3r.png){.img-responsive .img-center .r} 
+
+The figure looks pretty much the same as in the previous analysis. We see that
+differences across schools in language scores are larger at low verbal IQs and 
+smaller at high verbal IQs. This is all done at observed values of school SES. 
+We could, of course, generate lines setting centered school SES to zero, to see 
+what the model implies for schoools with average SES.
+
+### Plotting Scenarios
+
+A better way to compare the effects of school SES and unobserved school
+characteristics is to plot the regression lines for 4 schools which
+represent different scenarios. We set two to have school SES one
+standard deviation above and one standard deviation below the mean. We
+then combine these with school effects on the intercept and slope also
+set one standard deviation above and below the mean.
+
+Because of the high negative correlation between the slope and
+intercept, it makes more sense to combine a positive intercept residual
+with a negative slope residual, reflecting a "better" school where
+scores are higher and less dependent on verbal IQ. The contrast is
+provided by a negative intercept residual combined with a positive slope
+residual, reflecting a "worse" school where scores are lower and more
+dependent on verbal IQ.
+
+Here are the four scenarios, using the standard deviations saved earlier
+and the parameter estimates from the last run.
+
+```s
+	scalar a0 = _b[_cons]
+	scalar b0 = _b[iqvc]
+	scalar af = _b[sesc] * sesc_sd
+	scalar bf =  _b[c.iqvc#c.sesc] * sesc_sd //_b[iqvcXsesc] * sesc_sd
+	scalar ar =  exp(_b[lns1_1_2:_cons])
+	scalar br = -exp(_b[lns1_1_1:_cons]) // negative sign to pair +ve with -ne
+	capture drop arit* // to prevent ambiguity with ar
+	local range range(-7.8 6.1)     
+	twoway ///
+	  function y=(a0+af+ar) + (b0+bf+br)*x, lpat(solid) lc(green) `range' ///
+	  || function y=(a0+af-ar) + (b0+bf-br)*x, lpat(solid) lc(red)   `range' ///
+	  || function y=(a0-af+ar) + (b0-bf+br)*x, lpat(dash)  lc(green) `range' ///
+	  || function y=(a0-af-ar) + (b0-bf-br)*x, lpat(dash)  lc(red)   `range' ///     
+	, title(Predicted Regression Lines Given School SES and RE) ///
+	  xtitle(verbal IQ (centered)) ytitle(Language score) ///
+	  legend(order(1 "+ses +re" 2 "+ses -re" 3 "-ses +re" 4 "-ses -re") ///
+	  ring(0) pos(5))
+	graph export fig2lang3.png, width(500) replace
+```
+
+![](fig2lang3.png){.img-responsive .img-center .stata}
+
+```r
+	b <- fixef(cli)
+	sr <- attr(VarCorr(cli)$schoolnr, "stddev")
+	af <-  b[3] * school$sdses
+	bf <-  b[4] * school$sdses
+	x <- seq(-7.8, 6.1, 0.2)
+	d <- data.frame(iqvc = x,
+	  f1 = (b[1] + af + sr[1]) + (b[2] + bf - sr[2]) * x,
+	  f2 = (b[1] + af - sr[1]) + (b[2] + bf + sr[2]) * x,
+	  f3 = (b[1] - af + sr[1]) + (b[2] - bf - sr[2]) * x,
+	  f4 = (b[1] - af - sr[1]) + (b[2] - bf + sr[2]) * x)
+	x = d$iqvc[1] - 0.5
+	ggplot(d, aes(iqvc, f1)) + xlim(-10, 6) + ylab("language score") +
+	  geom_line() + geom_line(aes(iqvc,f2)) +
+	  geom_line(aes(iqvc,f3), linetype=2) + geom_line(aes(iqvc,f4), linetype=2)  +
+	  geom_text(aes(x, f1[1]), label="+ses +re", hjust=1) +  
+	  geom_text(aes(x, f2[1]), label="+ses -re", hjust=1) +
+	  geom_text(aes(x, f3[1]), label="-ses +re", hjust=1) +
+	  geom_text(aes(x, f4[1]), label="-ses -re", hjust=1)
+	ggsave("fig2lang3r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](fig2lang3r.png){.img-responsive .img-center .r} 
+
+Compare first the top two lines, which are schools with SES one sd above 
+(solid) and below (dashed) the mean, which happen to have favorable unobserved
+characteristics leading to higher scores and a shallower slope. 
+We see differences in language scores by school SES at low verbal IQs, 
+but these become smaller at higher verbal IQs and vanish at the top end.
+
+Compare now the bottom two lines, which are schools with SES one sd
+above (solid) and below (dashed) the mean, which happen to have adverse
+unobserved characteristics leading to lower scores and a steeper slope.
+We see essentially the same story, with differences by school SES
+declining with child\'s verbal IQ.
+
+Compare next the two solid lines, which represent schools with high SES
+with favorable (green) or adverse (red) conditions. The differences in
+language scores are larger than the differences by SES, and although
+they decline with verbal IQ, they never dissappear.
+
+The same is true for the two dashed lines, which correspond to schools
+with low SES and favorable or adverse unobserved characteristics, which
+tell the same story but with generally lower language scores.
+
+Graphs like these are essential to sort out the effects of observed and
+unobserved characteristics. They are a key component of my analysis of
+infant and child mortality in Kenya in the multilevel handbook.
+

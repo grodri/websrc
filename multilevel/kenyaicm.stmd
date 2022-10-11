@@ -1,0 +1,204 @@
+
+## Infant and Child Mortality in Kenya
+
+An important application of Poisson models is to multilevel survival
+analysis via the connection with piecewise exponential models. I
+illustrate this approach with an analysis of infant and child mortality
+in Kenya using DHS data, with an abridged version in my encyclopedia
+article (Rodríguez, 2015) and full details in my chapter in the
+*Handbook of Multilevel Analysis* (Rodríguez, 2008). You'll find the
+references with abstracts [here](https://data.princeton.edu/multilevel).
+
+I fill focus now on the calculation of predicted probabilities after
+fitting the model. I start by storing the estimates of the fixed effects
+and computing the baseline cumulative hazard up to ages 1 and 5. I also
+store the first and third quartiles of the linear predictor and the
+estimated standard deviations of the community and family effects.
+[Calculations are best done using Mata.]{.stata}
+
+.include srtabs
+
+```s
+	clear
+	mata:
+	  b = (-4.588, -1.642, -1.998, -2.822, -3.632, 0.087, 0.173, -0.047, 
+	    0.003, 0.003, 0.036, -0.068, -0.007, 0.040)
+	  logh0 = b[1] :+ (0, b[2..5])
+	  h0 = exp(logh0)
+	  w = (1,5,6,12,36)
+	  H0 = runningsum(h0:*w)[(3,5)]
+	  xb = (0.15, 0.63) // quartiles
+	  sigma = (0.613, 0.680)
+	end
+```
+
+```r
+	b <- c(-4.588, -1.642, -1.998, -2.822, -3.632, 0.087, 0.173, -0.047, 
+	  0.003, 0.003, 0.036, -0.068, -0.007, 0.040)
+	logh0 <- b[1] + c(0, b[2:5])
+	h0 <- exp(logh0)
+	w <- c(1,5,6,12,36)
+	H0 <- cumsum(h0 * w)[c(3,5)]
+	xb <- c(0.15, 0.63) # quartiles
+	sigma <- c(0.613, 0.680)
+```
+
+The conditional or *subject-specific probabilities* of dying by ages 1
+and 5 at the first and third quartiles of observed and unobserved risks
+can be calculated as shown below. To simplify repetitive calculations I
+wrote a function that calculates these probabilities given the baseline
+hazard, the linear predictor, the z-scores for unobserved family and
+community frailty, and the two standard deviations.
+
+```s
+	capture mata mata drop kcp()
+	mata:
+	real vector kcp(H0, xb, zf, zc, sigma) {
+	  S = exp(-H0 :* exp(xb + zf*sigma[1] + zc*sigma[2]))
+	  return(1 :- S)
+	}
+	M = J(8, 2, .)
+	k = 1
+	q = invnormal(.75)
+	for(zc = 1; zc >= -1; zc = zc - 2) {
+	  for(zf = 1; zf >= -1; zf = zf - 2) {
+	    for(i = 2; i >=1; i--) {
+	      M[k++, ] = kcp(H0, xb[i], q*zf, q*zc, sigma)
+	    }
+	  }
+	}
+	round(M, 0.001)
+end
+```
+
+```r
+	kcp <- function(H0, xb, zf, zc, sigma) {
+	  S <- exp(-H0 * exp(xb + zf*sigma[1] + zc*sigma[2]))
+	  1 - S
+	}
+	M <- matrix(NA, 8, 2)
+	q <- qnorm(0.75)
+	k <- 1
+	for(zc in seq(1,-1,-2)) {
+	  for(zf in seq(1,-1,-2)) {
+	    for(i in 2:1) {
+	      M[k,] <- kcp(H0, xb[i], q*zf, q*zc, sigma)
+	      k <- k + 1
+	    }
+	  }
+	}
+	M <- data.frame(M)
+	names(M) = c("q1","q5")
+	round(M, 3)
+```
+
+These probabilities can be shown in a bar chart as in the paper:
+
+```s
+	set obs 8
+	gen g = _n
+	label define g 1 "Q3 Q3 Q3" 2 "Q3 Q3 Q1" 3 "Q3 Q1 Q3" 4 "Q3 Q1 Q1" ///
+	               5 "Q1 Q3 Q3" 6 "Q1 Q3 Q1" 7 "Q1 Q1 Q3" 8 "Q1 Q1 Q1"
+	label values g g
+	gen q1 = .
+	gen q5 = .
+	mata st_store(., ("q1","q5"), M)
+	replace q5 = q5 - q1
+	graph bar q1 q5, over(g)  hor stack legend(off) ///
+	  bar(1, color(edkblue)) bar(2, color(emidblue)) ///
+	  title(Infant and Child Mortality) ///        
+	  subtitle(by quartiles of community and family frailty and observed risks)
+	graph export kenyaFig1.png, width(500) replace
+```
+
+![](kenyaFig1.png){.stata}
+
+```r
+	library(ggplot2)
+	L <- data.frame(
+	  age = factor(rep(c(1,5),c(8,8))), 
+	  g = factor(rep(1:8,2), 
+	  labels=c("Q3 Q3 Q3","Q3 Q3 Q1", "Q3 Q1 Q3", "Q3 Q1 Q1",
+	           "Q1 Q3 Q3","Q1 Q3 Q1", "Q1 Q1 Q3", "Q1 Q1 Q1")),
+	q = c(M$q1, M$q5 - M$q1))
+	ggplot(L) +
+	  geom_col(aes(g,q, fill=age), position=position_stack(reverse=TRUE)) + 
+	  coord_flip() +
+	  scale_fill_manual(values=c("#9FB2BE","#BDC9D4")) +
+	  scale_x_discrete(limits = rev(levels(L$g))) +
+	  labs(title = "Infant and Child Mortality",
+	    subtitle ="by quartiles of community and family frailty and observed risks")
+	ggsave("kenyaFig1r.png", width=7, height=5, dpi=72)
+```
+
+![](kenyaFig1r.png){.r}
+
+To compute the marginal or population-average probabilities we need to
+integrate out the family and community effects using Gauss-Hermite
+quadrature. Here are the results for the first and third quartiles of
+observed risks. I use a function to do the integration and another to
+compute the integrand.
+
+```s
+	capture mata mata drop ghi2()
+	capture mata mata drop qx()
+	mata:
+	function ghi2(real scalar npts, pointer(function) pf, real vector args) {
+	  gq = _gauss_hermite_nodes(npts)'
+	  // change of variables
+	  z = gq[,1] :* sqrt(2)
+	  w = gq[,2] :/ sqrt(pi())
+	  // evaluate f in grid
+	  r = 0
+	  for(i=1; i <= npts; i++) {
+	    for(j=1; j <= npts; j++) {
+	      r = r + ((*pf)(z[i], z[j], args) ) * w[i] * w[j]
+		}
+	  }
+	  return(r)
+	}
+	function qx(real scalar z1, real scalar z2, real vector args) {
+	// args are H0, xb and sigma
+	  S = exp(-args[1] * exp(args[2] + z1*args[3] + z2*args[4]))
+	  return(1 - S)
+	}
+	R = J(2, 2, .)
+	args = ., ., sigma[1], sigma[2]
+	for(i = 1;  i <=2; i++) {
+	  args[1] = H0[i]
+	    for(j = 1; j <= 2; j++) {
+	      args[2] = xb[j]
+	      R[i,j] = ghi2(12, &qx(), args)
+	  }        
+	}
+	R
+end    
+```
+
+```r
+	source("https://data.princeton.edu/pop510/gauher.R")
+	ghi2 <- function(f, gq = gauher(12)) {
+	  n <- nrow(gq)
+	  r <- 0
+	  for(i in 1:n) {
+	    for(j in 1:n) {
+	      r <- r + f(gq$z[i], gq$z[j]) * gq$w[i] * gq$w[j]
+	    }
+	  }
+	  r
+	}
+	R <- data.frame(matrix(0,2,2))
+	for(i in 1:2) {
+	  R[i,] <- ghi2( function(z1,z2) 
+	    1 - exp(-H0[i] * exp(xb + z1 * sigma[1] + z2 * sigma[2]))
+	  )
+	}
+	names(R) <- c("Q1","Q3")
+	row.names(R) <- c("q1","q5")
+	R
+```
+
+The average probability of infant death for children with observed
+risks in Q1 and Q3 are 47 and 74 per thousand. The corresponding average
+probabilities of death by age 5 are 73 and 113 per thousand for Q1 and
+Q3. In both cases averaging is over all families and communities.
