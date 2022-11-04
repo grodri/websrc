@@ -100,7 +100,7 @@ The mle is not defined when all women in a district have the same
 outcome, so everybody (or nobody) uses contraception. This occurs for 3
 districts.
 
-[The empirical Bayes estimates, based on the posterior distrivution of
+The empirical Bayes estimates, based on the posterior distribution of
 the random effects, can be obtained with 
 [`predict, reffects`, which defaults to posterior means but can also
 calculate posterior modes by adding the option `ebmode`.]{.stata}
@@ -217,9 +217,8 @@ is 7th.]{.stata}
 	end
 ```
 
-```r
-	#source("https://data.princeton.edu/pop510/gauher.R")
-	source("D:/R/gauher.R")
+```r	
+	source("https://raw.githubusercontent.com/grodri/websrc/main/multilevel/gauher.R")
 	gh <- gauher(12) # z is abscissa and w is weight
 	sig <- sqrt(unlist(VarCorr(ri7)))
 	u <- r <- 0 
