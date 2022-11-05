@@ -1,11 +1,11 @@
 # Unobserved Heterogeneity
 # A mortality crossover and unobserved frailty
-# G. Rodríguez / 2 March 2017
+# G. Rodríguez / 2 March 2017 rev 5 Nov 2022
 
 library(ggplot2)
 library(dplyr)
 
-usw <- read.table("https://data.princeton.edu/eco572/datasets/usWhiteBlackMales2002.dat")
+usw <- read.table("https://grodri.github.io/datasets/usWhiteBlackMales2002.dat")
 names(usw) <- c("age", "lxw", "lxb")
 
 us <- data.frame(

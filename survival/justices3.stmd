@@ -14,11 +14,11 @@ We read the data and recode dates as before. (You can skip this step if
 you are runing this code in the same session as the previous page.)
 
 ```s
-	use https://data.princeton.edu/pop509/justices2, clear
+	use https://grodri.github.io/datasets//justices2, clear
 ```
 
 ```r
-	justices <- read.csv("https://data.princeton.edu/pop509/justices2.csv")
+	justices <- read.csv("https://grodri.github.io/datasets//justices2.csv")
 ```
 
 ### Fitting the Model

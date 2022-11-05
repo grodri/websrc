@@ -14,11 +14,11 @@ saved on this website.
 .include srtabs
 
 ```s
-	use https://data.princeton.edu/pop509/justices2, clear
+	use https://grodri.github.io/datasets/justices2, clear
 ```
 
 ```r
-	justices <- read.csv("https://data.princeton.edu/pop509/justices2.csv")
+	justices <- read.csv("https://grodri.github.io/datasets/justices2.csv")
 ```
 
 We can now run a Cox regression looking at overall tenure in the court

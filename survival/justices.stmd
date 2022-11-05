@@ -35,7 +35,7 @@ and `year` of appointment, and save the dataset for later use.
 .include srtabs
 
 ```s
-	import delimited using https://data.princeton.edu/pop509/justices.csv, clear
+	import delimited using https://grodri.github.io/datasets/justices.csv, clear
 	gen birth = date(birthstr, "MDY")
 	gen start = date(startstr, "MDY")
 	replace stopstr = "February 22, 2018" if stopstr == ""
@@ -50,7 +50,7 @@ and `year` of appointment, and save the dataset for later use.
 ```
 
 ```r
-	justices <- read.csv("https://data.princeton.edu/pop509/justices.csv", 
+	justices <- read.csv("https://grodri.github.io/datasets/justices.csv", 
 		stringsAsFactors = FALSE)
 	table(justices$status)
 	library(dplyr)

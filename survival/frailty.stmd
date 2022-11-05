@@ -21,7 +21,7 @@ using what we now call a shared frailty model.
 The dataset is available as a Stata file in long format (one record per child):
 
 ```s
-	use https://data.princeton.edu/pop509/PebleyStupp, clear
+	use https://grodri.github.io/datasets/pebleystupp, clear
 	describe
 ```
 
@@ -89,7 +89,8 @@ the age of the child:
 	local follow "i011a1223 i011a24p i1223a24p"
 ```
 
-We are now ready to fit the model. You should verify that this reproduces exactly the results in Pebley and Stupp, which is quite remarkable.
+We are now ready to fit the model. You should verify that this reproduces 
+exactly the results in Pebley and Stupp, which is quite remarkable.
 
 ```s
 	streg `age' `fixed' `previous' `follow', dist(exponential) noconstant

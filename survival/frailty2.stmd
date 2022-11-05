@@ -90,21 +90,21 @@ It may be interesting to contrast the above results with the risks that can be
 attributed to observed characteristics.
 
 At this point we need the results from the piecewise exponential model with gamma 
-frailty. I saved the file generated in the previous log as `PebleyStupp2.dta`. 
+frailty. I saved the file generated in the previous log as `pebleystupp2.dta`. 
 We read the file [and fit the model again.]{.stata} </span>
-[and then read the parameter estimates from `PebleyStupp2.dat`.]{.r}
+[and then read the parameter estimates from `pebleystupp2.dat`.]{.r}
 
 ```s
-	use https://data.princeton.edu/pop509/PebleyStupp2, clear 
+	use https://grodri.github.io/datasets/pebleystupp2, clear 
 	streg i.dur mage mage2 borde pdead p0014 p1523 p2435 p36up i011a1223 i011a24p i1223a24p , ///
 		dist(exponential) frailty(gamma) shared(momid) nolog
 ```
 
 ```r
 	library(haven)
-	gux <- read_dta("https://data.princeton.edu/pop509/PebleyStupp2.dta")
+	gux <- read_dta("https://grodri.github.io/datasets/pebleystupp2.dta")
 	gux$death <- unlist(gux[,"_d"])
-	b <- scan("https://data.princeton.edu/pop509/PebleyStupp2.dat")
+	b <- scan("https://grodri.github.io/datasets/pebleystupp2.dat")
 ```
 
 Next we simply predict the hazard holding family frailty constant at one. 
@@ -291,7 +291,7 @@ same family.
 The last calculation is an odds ratio: the odds of one child dying by age five 
 are 23.9% higher if the other child  died by age five than if the other didn't!
 
-A [separate note](/pop509/frailty2r) discusses the use of log-normal frailty, 
+A [separate note](frailty2r) discusses the use of log-normal frailty, 
 which has the important advantage that it extends easily to multi-level models. 
 Calculation of unconditional survival, however, requires numerical integration.
 The results are very similar to those presented here.

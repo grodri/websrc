@@ -20,7 +20,7 @@ a dummy variable for `treated`.
 
 ```r
     library(dplyr)
-    gehan <- read.table("https://grodri.github.io/datasets/gehan.raw")
+    gehan <- read.table("https://grodri.github.io/datasets/gehan.dat")
     names(gehan)
     summarize(gehan, events = sum(relapse), exposure = sum(weeks))
     gehan <- mutate(gehan, treated = as.numeric(group == "treated"))

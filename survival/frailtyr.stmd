@@ -3,16 +3,15 @@
 
 We now fit a Cox model with shared frailty to data on child mortality in
 Guatemala. We have analized this data using piecewise exponential models
-with Gamma heterogeneity, using Stata, see [this
-page](https://data.princeton.edu/pop509/frailty.html). We now try a Cox
-model with log-normal heterogeneity using R.
+with Gamma heterogeneity, using Stata, see [this page](/frailty). 
+We now try a Cox model with log-normal heterogeneity using R.
 
 The dataset is available as a Stata file in long format (one record per
 child)
 
 ```r
 	library(haven)
-	gu <- read_dta("https://data.princeton.edu/pop509/PebleyStupp.dta")
+	gu <- read_dta("https://grodri.github.io/datasets/pebleystupp.dta")
 ```
 
 ### A Cox Model

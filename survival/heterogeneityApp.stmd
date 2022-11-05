@@ -11,4 +11,4 @@ To illustrate how this type of pattern could be the result of unobserved heterog
 You will notice that increasing heterogeneity eventually leads to the subject-specific hazard curves to uncross, showing that the observed pattern could result from black males experiencing more selection as a result of higher mortality rates. However, the variance needed to remove the crossover is very high. An alternative explanation may lie in age misreporting.
 
 Code for the underlying calculations in Stata or R may be found 
-[here](/eco572/heterogeneity).
+[here](/demography/heterogeneity).
