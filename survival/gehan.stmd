@@ -19,14 +19,14 @@ label the groups.]{.stata}
 ```s
     clear
     infile group weeks relapse using ///
-        https://grodri.github.io/datasets/datasets/gehan.raw
+        https://grodri.github.io/datasets/gehan.raw
     label define group 1 "control" 2 "treated"
     label values group group
     stset weeks, failure(relapse)
 ```
 
 ```r
-    gehan <- read.table("https://grodri.github.io/datasets/datasets/gehan.dat")
+    gehan <- read.table("https://grodri.github.io/datasets/gehan.dat")
     library(dplyr)
     summarize(gehan, events = sum(relapse), exposure = sum(weeks))
 ```

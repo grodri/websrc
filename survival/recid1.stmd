@@ -88,7 +88,7 @@ I also work with *p = 1/scale*.
 :::
 
 ```r
-    source("https://data.princeton.edu/pop509/aft2ph.txt")
+    source("https://grodri.github.io/survival/aft2ph.R")
     phfit <- aft2ph(wf); phfit
 ```
 
