@@ -13,14 +13,14 @@ a dummy variable for `treated`.
 
 ```s
     infile group weeks relapse using ///
-        https://data.princeton.edu/wws509/datasets/gehan.raw, clear
+        https://grodri.github.io/datasets/gehan.raw, clear
     gen treated = group == 2
     stset weeks, failure(relapse)
 ```
 
 ```r
     library(dplyr)
-    gehan <- read.table("https://data.princeton.edu/wws509/datasets/gehan.dat")
+    gehan <- read.table("https://grodri.github.io/datasets/gehan.raw")
     names(gehan)
     summarize(gehan, events = sum(relapse), exposure = sum(weeks))
     gehan <- mutate(gehan, treated = as.numeric(group == "treated"))
@@ -251,7 +251,7 @@ output look a bit like `ggplot`.]{.r}
 ```
 
 ```r
-    source("https://data.princeton.edu/pop509/ggfy.R.txt")
+    source("https://grodri.github.io/survival/ggfy.R")
     png("phplotr.png", width=500, height=400)
     ggfy(zph, df=2)
     dev.off()

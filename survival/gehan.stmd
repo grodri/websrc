@@ -4,7 +4,7 @@ The datasets page has a copy of the Gehan survival data, which were
 analyzed by Cox in his original proportional hazards paper. The data
 shows the length of remission in weeks for two groups of leukemia
 patients, treated and controls, click
-[here](https://data.princeton.edu/wws509/datasets/#gehan) for more
+[here](https://grodri.github.io/glms/datasets/#gehan) for more
 information.
 
 We analyze the data using R and Stata, using the Kaplan-Meier and
@@ -19,14 +19,14 @@ label the groups.]{.stata}
 ```s
     clear
     infile group weeks relapse using ///
-        https://data.princeton.edu/wws509/datasets/gehan.raw
+        https://grodri.github.io/datasets/datasets/gehan.raw
     label define group 1 "control" 2 "treated"
     label values group group
     stset weeks, failure(relapse)
 ```
 
 ```r
-    gehan <- read.table("https://data.princeton.edu/wws509/datasets/gehan.dat")
+    gehan <- read.table("https://grodri.github.io/datasets/datasets/gehan.dat")
     library(dplyr)
     summarize(gehan, events = sum(relapse), exposure = sum(weeks))
 ```
@@ -51,7 +51,7 @@ The Kaplan-Meier estimators for the two groups are easily [plotted using
 ```r
     library(survival)
     kmg <- survfit(Surv(weeks, relapse) ~ group, data=gehan)
-    source("https://data.princeton.edu/pop509/ggfy.R.txt")
+    source("https://grodri.github.io/survival/ggfy.R")
     png("kmgr.png", width=500, height=400)
     ggfy(kmg) # or call plot(kmg) directly
     dev.off()

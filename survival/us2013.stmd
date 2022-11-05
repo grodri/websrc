@@ -13,7 +13,8 @@ Here's how to read and plot the survival function, and how to compute
 and plot the (log of the) hazard function.
 
 ```s
-    insheet using https://data.princeton.edu/pop509/us2013s.dat, delim(" ") case
+    insheet using https://grodri.github.io/datasets/us2013s.dat, ///
+        delim(" ") case clear
     gen H = -log(S)
     gen agem = age + 0.5
     gen h = H[_n+1] - H
@@ -28,7 +29,7 @@ and plot the (log of the) hazard function.
     library(dplyr)
     library(ggplot2)
     library(gridExtra)
-    us <- read.table("https://data.princeton.edu/pop509/us2013s.dat", header=TRUE)
+    us <- read.table("https://grodri.github.io/datasets/us2013s.dat", header=TRUE)
     us <- mutate(us, 
         H = -log(S), 
         agem =age + 0.5, 
@@ -64,6 +65,6 @@ Here's a visual check of the fit at ages above 35:
 ![](us2013g.png){.r}
 
 The U.S. survival function for 2002 is
-[here](https://data.princeton.edu/eco572/datasets/us2002s.dat), in a
+[here](https://grodri.github.io/datasets/us2002s.dat), in a
 file that has age and S but no header. How much has the hazard function
 changed between 2002 and 2013?
