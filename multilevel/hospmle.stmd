@@ -222,11 +222,11 @@ subject-specific odds ratio of 2.81.
 You will find on this website analyses of the same data using three
 Bayesian methods:
 
--   Gibbs sampling with [winBUGS](hospbugs), and [Jags](hospjags)
+-   Gibbs sampling with [winBUGS](hospBUGS), and [Jags](hospJags)
 
--   Hamiltonian MCMC using [Stan](hospstan), and
+-   Hamiltonian MCMC using [Stan](hospStan), and
 
--   Metropolis-Hastings + Gibbs using Stata's [bayesmh](hospbayesmh).
+-   Metropolis-Hastings + Gibbs using Stata's [bayesmh](hospBayesmh).
 
 The last entry includes a comparison of estimates with all four methods.
 

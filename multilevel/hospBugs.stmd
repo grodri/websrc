@@ -5,10 +5,10 @@
 This page is an html version of a winBUGS *compound document* that I
 first produced in the Spring of 2001. The document is available on this
 website, right click on [hospBug.odc](hospbug.odc) and select
-'Save as ...' from the context menu. Then open it in WinBUGS. The file 
-`hospital.dat` with the data is available here in the datasets section. 
+'Save as ...' from the context menu. Then open it in WinBUGS. The
+file [hospital.txt](hospital.txt) with the data is also available here. 
 To see how to run WinBUGS in batch mode and import results into Stata 
-for further analysis [click here](hospbugs2).
+for further analysis [click here](hospBUGS2).
 </p>
 
 We will analyze the hospital delivery data from Lillard and Panis (2000)
