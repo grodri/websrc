@@ -1,0 +1,234 @@
+
+# Random-Effects Logit Models
+
+We will illustrate random intercept logit models using data from Lillard
+and Panis (2000) on 1060 births to 501 mothers. The outcome of interest
+is whether the birth was delivered in a hospital or elsewhere. The
+predictors include the log of income `loginc`, the distance to the
+nearest hospital `distance`, and two indicators of mothers's education:
+`dropout` for less than high school and `college` for college graduates,
+so high school or some college is the reference cell.
+
+.include srtabs
+
+First we read the data from the course website
+
+```s
+	infile hosp loginc distance dropout college mother ///
+		using https://grodri.github.io/datasets/hospital.dat, clear
+```
+
+```r
+	hosp <- read.table("https://grodri.github.io/datasets/hospital.dat", 
+	  header = FALSE)
+	names(hosp) <- c("hosp","loginc","distance","dropout","college","mother")
+```
+
+## Fitting the Model
+
+To fit a model with a woman-level random effect [we can use
+`xtlogit`]{.stata}[we use `glmer()` in the `lme4` package]{.r}
+
+```s
+	xtlogit hosp loginc distance dropout college, i(mother) re
+	estimates store xt
+```
+
+[By default Stata uses Gauss-Hermite adaptive quadrature using the mean
+and variance with 12 integration points.]{.stata}
+
+[The same model can be fit using `melogit`, which by default uses only 7
+integration points. We can change the number to 12 to get better
+correspondence.]{.stata}
+
+```s
+	melogit hosp loginc distance dropout college || mother:, intpoints(12)
+	estimates store me
+	estimates table xt me
+```
+
+[Note that `xtlogit` reports the logged variance (and the standard
+deviation) whereas `melogit` reports the variance, but the results are
+equivalent. The other estimates are all very close.]{.stata}
+
+```r
+	library(lme4)
+	pql <- glmer(hosp ~ loginc + distance + dropout + college + 
+		(1 | mother), data = hosp, family=binomial)
+	summary(pql, corr = FALSE)
+```
+
+[By default R uses the PQL approximation, which is not always accurate.
+Let us specify 12-point adaptive Gaussian quadrature instead, and then
+compare the estimates:]{.r}
+
+
+```r
+	agq <- glmer(hosp ~ loginc + distance + dropout + college + 
+	  (1 | mother), data = hosp, family=binomial, nAGQ = 12)
+	summary(agq, corr = FALSE)    
+	cbind(fixef(pql), fixef(agq))
+	c(unlist(VarCorr(pql)), unlist(VarCorr(agq)))
+```
+
+[We see that the fixed effects are similar, but PQL underestimates the
+variance at the mother level. By the way a simple quadrature check is to
+increase the number of quadrature points and verify that all estimates
+remain essentially unchanged.]{.r}
+
+## Interpreting the Estimates
+
+The estimated fixed effects may be exponentiated and interpreted as odds
+ratios in the usual way. For example the coefficient of college, which
+exponentiated is 2.81, means that the odds of hospital delivery for a
+college graduate are 2.81 times those of a high school graduate with the
+same observed and unobserved characteristics, including income, distance
+to the hospital, and the mother-specific residual.
+
+The standard deviation of the random effect may be interpreted exactly
+the same way, by treating it as the coefficient of a standard normal
+random effect. In this case the standard deviation of 1.24 exponentiated
+becomes 3.47, so the odds of hospital delivery for a woman whose
+unobserved characteristics put her one standard deviation above the
+mean, are three-and-a-half times those of an average woman with the same
+observed characteristics, including income, education, and distance to
+the hospital.
+
+## Intra-class correlation
+
+[Stata's `xtlogit` reports the intra-class correlation "rho" in the
+*latent* scale as 0.32. We can verify this result]{.stata} [We can
+compute the intra-class correlation in the *latent* scale]{.r} using the
+estimated variance at the mother level and recalling that the level-1
+variance is p^2^/3:
+
+```s
+	estimates restore xt    
+	scalar v2 = exp(_b[/lnsig2u])
+	di v2/(v2 + _pi^2/3)
+```
+
+```r
+	v <- unlist(VarCorr(agq))
+	v / (v + pi^2/3)
+```
+
+The intraclass correlation of 0.32 reflects the correlation between the
+latent propensity to deliver in a hospital for two births of the same
+mother. It also means that about one third of the variance in the latent
+propensity to deliver in a hospital, beyond that explained by income,
+education and distance to the hospital, can be attributed to other
+characteristics of the mothers.
+
+We can also calculate the *manifest* correlation at the median linear
+predictor, which requires "integrating out" the random effect. [The
+`xtrho` command can calculate this for us at the median or other
+quantiles. This command is only available after `xtlogit`, `xtprobit` or
+`xtcloglog`. Fortunately our current estimate is from `xtlogit`.]{.stata}
+[We can do this by first calculating the median linear predictor and
+then computing the average probability of one and two hospital
+deliveries using the `gauher()` function to integrate out the random
+effect. The function can be sourced directly from this website as shown
+below.]{.r}
+
+```s
+	xtrho
+```
+
+```r
+	X <- model.matrix(agq)
+	xb <- X %*% fixef(agq)
+	md <- median(xb)
+	source("https://grodri.github.io/multilevel/gauher.R")
+	ghi <- function(f, gq = gauher(12)) {
+		sum(f(gq$z) * gq$w)
+	}    
+	m1  <- ghi(function(z) plogis(md + sqrt(v)*z));   m1  # margin
+	m11 <- ghi(function(z) plogis(md + sqrt(v)*z)^2); m11 # joint
+	M <- matrix(c(m11, m1 - m11, m1 - m11, 1 - 2*m1 + m11), 2, 2)
+	or <- M[1,1]*M[2,2]/(M[1,2]*M[2,1]) ; or # odds ratio
+	r  <- (m11 - m1^2)/(m1 * (1-m1))    ; r  # Pearson's r
+	Q  <- (or - 1)/(or + 1)             ; Q  # Yule's Q
+```
+
+[The probability of one birth delivered in a hospital is 23.9% and the
+probability of two is 9.38%. The code builds a 2x2 table from the joint
+and marginal distributions and then computes three correlation measures.]{.r}
+
+We see that the correlation between the actual place of delivery for two
+births of the same woman, if she has median characteristics, is equivalent
+to a Pearson's *r* of 0.20, a Yule's *Q* of 0.46, or perhaps in more
+familiar terms an odds ratio of 2.73. This means that the odds of
+hospital delivery for a woman who delivered a previous birth at a
+hospital are 2.73 times those of a comparable woman who delivered the
+previous birth elsewhere.
+
+## Population Average Effects
+
+Earlier we noted that the effect of education implies that the odds of
+hospital delivery for a college graduate are 2.8 times those of a high
+school graduate with the same observed and unobserved characteristics.
+This is a *subject specific* effect, comparing the odds of hospital
+delivery for essentially the same woman under two different education
+scenarios. It is also a conditional effect given a fixed value of the
+random effect.
+
+We can also compute a *population average* effect by averaging or
+"integrating out" the random effect. Essentially this entails computing
+the effect at different values of the random effect and averaging, and
+it can be computed by numerical integration or by simulation. Let us
+find the effect of education at the mean distance of 3.74 and the mean
+log income of 5.88 using Gauss-Hermite integration [with the built-in
+function `_gauss_hermite_nodes()`.]{.stata}
+
+```s
+	egen first = tag(mother)
+	quietly sum dist if first
+	scalar mdist = r(mean)
+	quietly sum loginc if first
+	scalar mloginc = r(mean)
+	di mdist, mloginc
+	scalar xb = _b[_cons] + _b[loginc] * mloginc + _b[dist] * mdist    
+	scalar sigma = exp(_b[/lnsig2u]/2)
+	scalar bcollege = _b[college]
+	mata:         
+	  xb = st_numscalar("xb")
+	  sigma = st_numscalar("sigma")
+	  b = st_numscalar("bcollege")
+	  gh = _gauss_hermite_nodes(12)'   // transpose
+	  gh[,1] = gh[, 1] :* sqrt(2)      // change of variables
+	  gh[,2] = gh[, 2] :/ sqrt(pi())   // to standard normal
+	  p1 = sum( invlogit(xb :+ b :+ gh[,1] :* sigma) :* gh[,2])
+	  p0 = sum( invlogit(xb      :+ gh[,1] :* sigma) :* gh[,2])
+	  (p1/(1-p1))/(p0/(1-p0))
+	end
+```
+
+```r
+	library(dplyr)
+	x <- summarize(hosp, loginc = mean(loginc), distance= mean(distance)); x
+	b <- fixef(agq)
+	xb <- as.numeric(b[1] + x["loginc"] * b["loginc"] + x["distance"]* b["distance"])
+	p1 <- ghi(function(z) plogis(xb + b["college"] + sqrt(v)*z)) 
+	p0 <- ghi(function(z) plogis(xb +                sqrt(v)*z)) 
+	(p1/(1 - p1)) / (p0/(1-p0))
+```
+
+We get an odds ratio of 2.21. This is smaller in magnitude than the
+subject-specific odds ratio of 2.81.
+
+## Other Approaches to Estimation
+
+You will find on this website analyses of the same data using three
+Bayesian methods:
+
+-   Gibbs sampling with [winBUGS](hospBUGS), and [Jags](hospJags)
+
+-   Hamiltonian MCMC using [Stan](hospStan), and
+
+-   Metropolis-Hastings + Gibbs using Stata's [bayesmh](hospBayesmh).
+
+The last entry includes a comparison of estimates with all four methods.
+
+Last updated 12 April 2018
+

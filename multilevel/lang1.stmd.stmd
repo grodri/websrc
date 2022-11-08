@@ -1,0 +1,177 @@
+
+## Variance Components
+
+We illustrate basic ideas in variance-component models using data from 
+Snijders and Boskers (1999). The dataset has 2287 children from 131 
+schools in The Netherlands, and is available in Stata format.
+
+.include srtabs
+
+```s
+	use https://grodri.github.io/datasets/snijders, clear
+```
+
+```r
+	library(haven)
+	snijders <- read_dta("https://grodri.github.io/datasets/snijders.dta")
+```
+
+We are interested in scores in a language test. Here are some
+descriptive statistics:
+
+```s
+	sum langpost
+	scalar om = r(mean)
+	bysort schoolnr: gen sn = _N     // school n
+	by schoolnr: gen first = _n == 1 // mark first obs in school
+	sum sn if first
+```
+
+```r
+	library(dplyr)
+	options(pillar.sigfig=4)
+	om <- summarize(snijders, m = mean(langpost)); om	
+	sm <- group_by(snijders, schoolnr) |> summarize(n = n())
+	summary(sm$n)
+```
+
+The overall mean is 40.93. The number of observations per school ranges 
+from 4 to 35, with an average of 17.46.
+
+### Components of Variance
+
+Next we fit a simple variance components model of the form
+[*Y*~*ij*~ = *μ* + *a*~*i*~ + *e*~*ij*~]{.math .inline} using `schoolnr`
+as the grouping factor:
+
+```s
+	xtreg langpost, i(schoolnr) mle
+```
+
+```r
+	library(lme4)
+	vc <- lmer(langpost ~ 1 + (1 | schoolnr), data=snijders, REML = FALSE); vc
+	v <- VarCorr(vc); v
+	s2u <- as.numeric(v)
+	s2e <- sigma(vc)^2
+	s2u/(s2u + s2e) # icc
+```
+
+We find an intraclass correlation of 0.23, so 23% of the variation in
+language scores can be attributed to the schools. (Alternative
+estimation methods will be discussed later, here we just used maximum
+likelihood estimation.)
+
+### The Grand Mean
+
+Note that the estimate of the constant is not the same as the overall
+mean obtained at the outset. The overall mean can be seen as averaging
+the school means with weights proportional to the number of students per
+school, which would be optimal if the observations were independent. At
+the other extreme one could compute an unweighted average of the school
+means, which would be optimal if the intra-class correlation was one.
+Let's compute these:
+
+```s
+	egen sm = mean(langpost), by(schoolnr)    // school mean
+	quietly sum sm [fw=sn] if first
+	di r(mean)
+	quietly sum sm if first
+	di r(mean)
+```
+
+```r
+	schools <- group_by(snijders, schoolnr) |> 
+	  summarize(sn = n(), sm = mean(langpost))
+	summarize(schools, mw = weighted.mean(sm, sn), mu = mean(sm))
+```
+
+We obtain estimates of 40.93 weighted by school sample size and 40.13
+unweighted. The random effects estimate represents a compromise between
+these extremes, and can be reproduced using weights inversely
+proportional to the variance of the school means:
+
+```s
+	gen sw  = 1/(_b[/sigma_u]^2+_b[/sigma_e]^2/sn)
+	quietly sum sm [aw=sw] if first
+	di r(mean)
+```
+
+```r
+	schools2 <- mutate(schools, sw = 1/(s2u + s2e/sn))    
+	summarize(schools2, mle =  weighted.mean(sm, sw))
+```
+
+We verify the estimate of 40.36.
+
+### School Effects
+
+Next we consider 'estimation' of the school random effects.
+
+If these effects were treated as *fixed*, so the model is
+[~*ij*~ = *μ* + *α*~*i*~ + *e*~*ij*~]{.math .inline} we would estimate
+them by introducing a dummy variable for each school.
+
+It turns out that the estimate of [*μ*]{.math .inline} is the overall
+mean, the estimate of [*μ* + *α*~*i*~]{.math .inline} is the school
+mean, and thus the estimate of αi is the difference between the school
+mean and the overall mean.
+
+With *random* effects we consider the (posterior) distribution of ai
+given the data yi (the vector with yi j for j = 1, ... ,ni). This can be
+obtained using Bayes theorem from the (prior) distribution of ai, the
+conditional distribution of the data **y**~i~ given *a*~i~ and the
+marginal distribution of the data.
+
+The resulting estimate is known as BLUP (for best linear unbiased
+predictor) and can be shown to be the difference between the school mean
+and the m.l.e. of the constant "shrunk" towards zero by a factor
+
+[*R*~*i*~ = *σ*~*u*~^2^/(*σ*~*u*~^2^ + *σ*~*e*~^2^/*n*~*i*~),]{.math .display}
+
+the ratio of the variances of the random effect and the school mean.
+Note that shrinkage is minimal when (1) [*n*~*i*~]{.math .inline} is
+large, (2) [*σ*~*e*~^2^]{.math .inline} is small (students are not
+informative), and/or (3) [*σ*~*u*~^2^]{.math .inline} is large (schools
+are informative). Let us calculate these 'by hand'
+
+```s
+	gen R = _b[/sigma_u]^2/(_b[/sigma_u]^2 + _b[/sigma_e]^2/sn)
+	gen ahat = R*(sm-_b[_cons])
+	gen alphahat = sm - om
+	scatter ahat alphahat, title(School effects on language scores) ///
+	  xtitle(MLE) ytitle(BLUP)
+	graph export langblup.png, width(500) replace    
+```
+
+![](langblup.png){.stata}
+
+```r
+	library(ggplot2)
+	schools3 <- mutate(schools2, 
+	  R = s2u/(s2u + s2e/sn), 
+	  ahat = R * (sm - fixef(vc)),
+	  alphahat = sm - om$m)
+	ggplot(schools3, aes(alphahat, ahat)) + geom_point() +
+	  ggtitle("School Effects on Language Scores")
+	ggsave("langblupr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](langblupr.png){.r}
+
+BLUPS can be computed more easily using `xtmixed` in Stata or `ranef()`
+in R
+
+```s
+	xtmixed langpost || schoolnr: , mle 
+	predict ahat2, reffects
+	list schoolnr ahat ahat2 if first & schoolnr < 16 
+```
+
+```r
+	eb <- ranef(vc)
+	cbind(head(eb$schoolnr), head(schools3$ahat))
+```
+
+We list a few cases to show that the two calculations yield the same
+result.

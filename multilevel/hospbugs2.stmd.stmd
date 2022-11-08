@@ -1,0 +1,163 @@
+
+## Running WinBUGS in Batch Mode {#WinBUGS2 .first}
+
+Pointing and clicking following the instructions in a compound document
+such as [hospBUGS](hospBUGS) is fine for becoming familiar with the software, 
+but for serious work you will want to create a script that documents all the 
+steps. That's our task here. 
+
+It is possible to run WinBUGS from Stata or from R, and then import the
+results for further analysis. Here I'll focus on running WinBUGS directly.
+See Thompson et al. (2006) for Stata, and Sturtz, Ligges and Gelman (2005)
+for R.
+
+::: {style="border-left:2px solid #3366cc; padding-left:1em"}
+*Note*. WinBUGS works with local files. You may want to start by downloading
+`hospital.dat`, `hospModel.txt`, `hospList.txt`, `hospInits.txt`, and 
+`hospScript.txt`. The code below assumes that these files are in `d:\temp`, 
+but you will need to change that.
+:::
+
+#### Model and Data Files
+
+We start by saving the model into a text file. For the hospital data I created 
+`hospModel.txt`, with the following contents. 
+
+```
+model {
+    # N observations
+    for (i in 1:N) {
+        hospital[i] ~ dbern(p[i])
+        logit(p[i]) <- bcons + bloginc*loginc[i] + bdistance*distance[i] + 
+            bdropout*dropout[i] + bcollege*college[i] + u[group[i]] 
+    }
+    # M groups
+    for (j in 1:M) {
+        u[j] ~ dnorm(0,tau)
+    }
+    # Priors
+    bcons     ~ dnorm(0.0,1.0E-6)
+    bloginc   ~ dnorm(0.0,1.0E-6)
+    bdistance ~ dnorm(0.0,1.0E-6)
+    bdropout  ~ dnorm(0.0,1.0E-6)
+    bcollege  ~ dnorm(0.0,1.0E-6)
+    # Hyperprior
+    tau ~ dgamma(0.001,0.001)
+}
+```
+
+Next I saved the list with the number of units per level in a file
+called `hospList.txt` which looks like this:
+
+```
+list(N=1060,M=501)
+```
+
+The data themselves, of course, are already in a file called
+`hospital.txt`. Click [here](hospital.txt) to see it.
+
+At this point we add a file with the initial values, which I called
+`hospInits.txt` and which looks like this:
+
+```
+list(bcons=-2.69517150,bloginc=0.45852520,bdistance=-0.07627492,
+    bdropout=-1.57007674,bcollege=0.82072827,tau=1)
+```
+
+#### The Script File
+
+Wih these four files, all we need is the following script,
+which I saved in a file called `hospScript.txt`:
+
+```
+display('log')
+check('d:/temp/hospModel.txt')
+data('d:/temp/hospList.txt')
+data('d:/temp/hospital.txt')
+compile(1)
+inits(1,'d:/temp/hospInits.txt')
+gen.inits()
+update(500)
+set(bcons)
+set(bloginc)
+set(bdistance)
+set(bdropout)
+set(bcollege)
+set(tau)
+update(5000)
+coda(*,'d:/temp/hospOut')
+```
+
+Each of the commands listed above corresponds to one of the actions we
+performed before: checking the model, reading the data, compiling,
+reading initial values for the parameters, generating initial values for
+the random effects, running a burn-in, setting the nodes to be traced,
+updating, and finally writing the output to a file for further analysis.
+
+Note that all file names are specified to WinBUGS using forwards
+slashes, although the path separator in Windows is a backslash. That's
+why we write `d:/temp` rather than `d:\temp`.
+
+You can open the script file in WinBUGS (make sure you say it is of type
+"text" before you open it) and then select Model | Script in the menu
+or press Alt-M-C, or even better, on Windows press Start and type cmd in 
+the search box to open a command window, and then type
+
+`D:\WinBUGS\WinBUGS14.exe /PAR d:/temp/hospScript.txt `
+
+Make sure you type the path and name of the WinBUGS executable in your
+system (I installed my copy in a folder called `D:\WinBUGS`. The
+executable itself is called `WinBUGS14.exe`) and the name of the script
+file.
+
+#### The CODA Output
+
+CODA is a popular program for convergence diagnostics written for R.
+WinBUGS produces output that can be read by CODA in a simple format. The
+command `coda(*,'d:/temp/hospOut')` in our script generates two files:
+an index and a data file.
+
+The *index* file has a name consisting of the stem we specified and
+the postfix "Index.txt", so in our case the file is called
+"D:\\temp\\hospOutIndex.txt" and looks like this
+
+```
+bcons     1        5000
+bloginc   5001    10000
+bdistance 10001   15000
+bdropout  15001   20000
+bcollege  20001   25000
+tau      25001   30000
+```
+
+The *data* file has a name consisting of the stem we specified and
+the postfix "1.txt" where 1 stands for chain 1, so in our case the
+file is called "D:\\temp\\hospOut1.txt" and looks like this (I show
+only the first two lines and the last one)
+
+```
+501     -3.038
+502     -2.795
+...
+5500    0.7913
+```
+
+This file simply has the sample number and the value of the parameter
+for each draw, in the order specified in the index file. In our case
+lines 1 to 5000 are the values of `bcons`, lines 5001 to 10000 are the
+values of `bloginc`, and so on.
+
+Obviously reading this file into Stata or R for further analysis is not hard.
+
+## References
+
+Thompson J., T. Palmer and S. Moreno (2006). Bayesian analysis in Stata
+with Win BUGS. *The Stata Journal* __6__(4): 530-540. 
+[See in SJ site](https://www.stata-journal.com/article.html?article=st0115).
+
+
+Sturtz, S, U. Ligges and A. Gelman (2005).
+`R2WinBUGS`: A Package for Running `WinBUGS` from `R`."
+*Journal of Statistical Software*, __12__(3): 1–16.
+Updated vignette at [CRAN](https://cran.r-project.org/web/packages/R2WinBUGS/vignettes/R2WinBUGS.pdf).
+

@@ -1,0 +1,133 @@
+                      
+## Multilevel Model Equations
+
+We write down the equations for the growth curve models of mathematics
+achievement fitted in [this page](egm). Equations for other models
+may be found in the class slides for random coefficient models
+[here](pop510slides3.pdf).
+
+.include mathjax
+
+Let $Y_{ijk}$ be the outcome at time $k$ for child $j$ in school $i$,
+with $t_{ijk}$ as the corresponding time (study year).
+
+### Growth Curves
+
+The growth curve model with random intercepts and slopes is
+$$
+Y_{ijk} = (\alpha + a_i + a_{ij}) + (\beta + b_i + b_{ij})t_{ijk} + e_{ijk}
+$$
+
+where $e_{ijk} \sim N(0,\sigma^2)$ is the error term, 
+$(a_{ij}, b_{ij}) \sim N(0, \Sigma)$} are the intercept and slope random 
+effects at the child level, with unstructured (free) covariance matrix
+$$
+\Sigma = \begin{bmatrix} \sigma^2_{a} & \sigma_{ab} \\
+                         \sigma_{ab}  & \sigma^2_{b} \end{bmatrix}
+$$						 
+and $(a_i, b_i) \sim N(0, \Phi)$ are the intercept and slope random 
+effects at the school level, with unstructured covariance matrix
+$$
+\Phi = \begin{bmatrix} \varphi^2_{a} & \varphi_{ab} \\
+                       \varphi_{ab}  & \varphi^2_{b} \end{bmatrix}
+$$
+This model has 2 fixed parameters (intercept and slope) and 6 variances
+and covariances of random effects (3 at each at levels 3 and 2), plus
+the variance of the error term.
+
+The parameters and the estimates from fitting the model match as
+follows. First the fixed effects
+
+  Parameter   Name         Estimate
+  ----------  ----------- ---------
+  $\alpha$    constant      -0.7793
+  $\beta$     study year     0.7630
+
+And next the variances and covariances of the random effects
+
+  Parameter       Name                Estimate
+  --------------- ----------------- ----------
+  child:                                                    
+  $\sigma^2_a$     var(cons)            0.6405
+  $\sigma^2_b$     var(year)            0.0113
+  $\sigma_{ab}$    cov(year, cons)      0.0458
+  school:                                                   
+  $\varphi^2_a$    var(cons)            0.1653
+  $\varphi^2_b$    var(year)            0.0110
+  $\varphi_{ab}$   cov(year, cons)      0.0170
+
+Note that Stata reports level 3 and then level 2, and puts the constant
+at the end. R starts with the constant and reports level 2 and then
+level 3, as I have done here.
+
+### Growth Curve Predictors
+
+Let $x_{2ij}$ and $x_{3ij}$ be the indicators of black and hispanic 
+ethnicity for child $j$ in school $i$ and let
+$z_i$ be the percent of low-income students in school $i$.
+
+There are two-ways of writing the model. Let us start with
+level-specific models. For each child in a given occassion
+$$
+	Y_{ijk} = A_{ij} + B_{ij} t_{ijk} + e_{ijk}
+$$	
+where the error term $e_{ijk}$ is as before, and
+the intercept $A_{ij}$ and slope $B_{ij}$ are specific to each child. 
+These follow their own models depending on child ethnicity
+$$
+\begin{align} 
+  A_{ij} = A_i + \alpha_1 x_{1ij} + \alpha_2 x_{2ij} + a_{ij} \\ 
+  B_{ij} = B_i + \beta_1  x_{1ij} + \beta_2  x_{2ij} + b_{ij} \end{align}
+$$
+
+where the intercept $A_i$ and slope $B_i$ are specific to each school, and 
+follow their own models depending on the percent of low-income students
+$$
+\begin{align} A_i = \alpha + \alpha_3 z_i + a_i \\ 
+              B_i = \beta +  \beta_3  z_i + b_i \end{align}
+$$
+Here the residuals $(a_i, b_i)$ at level 3 and $(a_{ij}, b_{ij})$ at level 2 
+follow bivariate normal distributions as shown in the previous section.
+
+If we substitute the level 3 and level 2 equations on the level 1 model
+we obtain
+$$
+\begin{align} Y_{ijk} = 
+  & (\alpha + \alpha_1 x_{1ij} + 
+    \alpha_2 x_{2ij} + \alpha_3 z_i + a_i + a_{ij}) + \\ 
+  & ( \beta + \beta_1 x_{1ij} + \beta_2 x_{2ij} + \beta_3 z_i + 
+    b_i + b_{ij}) t_{ijk} + e_{ijk} \end{align}
+$$		
+which shows that the fixed effects include main effects of black,
+hispanic, low-income and year, as well as the interactions of black,
+hispanic and low-income with year, which enter as cross-products.
+Carrying out the multiplication by $t_{ijk}$ and reordering a bit helps 
+make this clear:
+$$
+\begin{align} Y_{ijk} = & \alpha + \alpha_1 x_{1ij} +
+  \alpha_2 x_{2ij} + \alpha_3 z_i + \beta t_{ijk} + \\
+  & \beta_1 x_{1ij} t_{ijk} + \beta_2 x_{2ij} t_{ijk} + 
+    \beta_3 z_i t_{ijk} + \\ 
+  & a_i + a_{ij} + b_i t_{ijk} + b_{ij} t_{ijk} + e_{ijk} \end{align}
+$$
+
+The three lines here correspond to main effects, interactions, and
+random effects.
+
+Here are the fixed effect parameters with their names and estimates
+
+  Parameter    Name                  Estimate
+  -----------  ------------------- ----------
+  $\alpha$     Constant                0.1406
+  $\alpha_1$   Black                  -0.5021
+  $\alpha_2$   Hispanic               -0.3194
+  $\alpha_3$   Low-income             -0.0076
+  $\beta$      Time                    0.8745
+  $\beta_1$    Black × Time           -0.0309
+  $\beta_2$    Hispanic × Time         0.0431
+  $\beta_3$    Low-income × Time      -0.0014
+
+The names of the variances and covariances of the random effects are the
+same as in the previous section.
+
+
