@@ -1,0 +1,290 @@
+## Rates and Standardization
+
+We will work through the example in Preston et al., sections 2.2 and 2.3.
+
+### Sample Data
+
+I copied the counts of mid-year population and deaths by Age for Sweden and 
+Kazakhstan from Table 2.1 into a text file that is available in the datasets
+section. 
+The file is in "long" format. As usual, I show the analysis in R and Stata.
+
+.include srtabs
+
+```s
+	infile str10 country str5 ageg pop deaths ///
+	  using https://grodri.github.io/datasets/preston21long.dat, clear
+	list in 1/3
+```
+
+```r
+	p21 <- read.table("https://grodri.github.io/datasets/preston21long.dat",
+	  header=FALSE, col.names = c("country", "ageg", "pop", "deaths"))
+	head(p21, 3)
+```
+
+The first thing to do is to calculate the age-specific rates, dividing deaths by 
+population and multiplying by 1000:
+
+```s
+	gen rates = 1000 * deaths / pop
+```
+
+```r
+	library(dplyr)
+	p21 <- mutate(p21, rates = 1000 * deaths / pop)
+```
+
+Crude death rates are just a weighted average of age-specific rates using the 
+population in each age group as the weight. We can easily compute them like this:	
+
+```s
+	tabstat rates [fw=pop], by(country)
+```
+
+```r
+	group_by(p21, country) |>
+	  summarize(crude = weighted.mean(rates, pop))
+```
+
+The interesting result here is that mortality appears to be *lower* 
+in Kazakhstan than in Sweden.
+
+### Standardized Rates
+
+Following Preston et al., we will standardize the rates using the average of 
+the two population compositions as the standard. To do this we calculate first 
+the percent distribution in each country and then average the percents. 
+While we are at it we will also calculate the average rates.
+
+```s
+	egen pcpop = pc(pop), by(country)
+	egen avgcomp = mean(pcpop), by(ageg)
+```
+
+```r
+	p21 <- group_by(p21, country) |>
+	  mutate(pct = pop/sum(pop))
+	avg <- group_by(p21, ageg) |>
+	  summarize(pop = mean(pct), rates = mean(rates))
+```
+
+Now we can easily compute the standardized rates using the average composition 
+as the standard. [Because we assigned the grouped data to p21 we can skip the 
+grouping step.]{.r}
+
+```s
+	tabstat rates [aw=avgcomp], by(country)
+```
+
+```r
+	summarize(p21, std = weighted.mean(rates, avg$pop))
+```
+
+We see that once we adjust for age composition the mortality rate is in fact 
+*higher* in Kzakhstan than in Sweden, actually 61.1% higher.
+
+### Indirect Standarization
+
+Frequently we don't have age-specific rates, but can easily obtain the age 
+distribution. We can still do a form of standardization by applying the rates 
+of one country (or any other standard) to the two age distributions. Let us 
+use the rates for Sweden and apply them to both countries. To do this we sort 
+by age and country, and for each age pick the second value
+
+```s
+	bysort age (country): gen swrates = rates[2]
+	tabstat swrates [fw=pop], by(country)
+```
+
+```r
+	sweden <- filter(p21, country == "Sweden")
+	summarize(p21, istd = weighted.mean(sweden$rates, pop))
+```
+
+So if Kazakhstan had Swedish rates the CDR would be 4.2. 
+The ratio of the actual CDR to the expected rate under the standard age 
+structure is known as the standardized mortality ratio (SMR) and turns out to be	
+
+```s
+	quietly sum rates [fw=pop] if country == "Kazakhstan"
+	scalar kzcmr = r(mean)
+	quietly sum swrates [fw=pop] if country == "Kazakhstan"
+	di "SMR = ", kzcmr/r(mean)
+```
+
+```r
+	filter(p21, country == "Kazakhstan") |>
+	  summarize(istd = weighted.mean(sweden$rates,pop), 
+	  crude = weighted.mean(rates,pop), smr = crude/istd)
+```
+
+Mortality in Kazakhstan is in fact 77% higher than it would be at Swedish rates 
+with the observed age composition.
+
+The indirect standardized rate for Kazakhstan is defined as the product of the 
+SMR by the crude death rate for Sweden, 7.767 × 10.548 or 18.639. 
+For more information see [this handout](/eco572/standardization.pdf).
+
+::: stata
+*Note*: Stata has commands `dstdize` and `istdize` for direct and indirect
+standardization. The Stata Forum has an [entry](https://bit.ly/36pKweW) 
+showing how to use those commands to reproduce the calculations on this page.
+:::
+
+### Decomposition of Differences between Rates
+
+Preston et al. show how to decompose a difference between two rates into a part 
+due to compositional differences and a part due to differences in rates. 
+The two components are obtained by  applying the average composition to the 
+observed rates, and by applying the observed compositions to the average rates.
+An important property f this decomposition is that it is exact.
+
+```s
+	egen avgrates = mean(rates), by(ageg)
+	tabstat avgrates [fw=pop], by(country)
+```
+
+```r
+	dbr <- summarize(p21,
+	  crude = weighted.mean(rates,pop),
+	  comp = weighted.mean(rates, avg$pop), 
+	  rates = weighted.mean(avg$rates, pop)); dbr
+```
+
+We see that with the same rates the older composition of Sweden would result in 
+much higher mortality than observed. We can now verify the decomposition:
+
+```s
+	display "Difference = " 10.55 - 7.42 ///
+	  "; Composition = " 13.44 - 5.81 ///
+	  "; Rates = " 7.37 - 11.88    
+```
+
+```r
+	c(-1, 1) %*% as.matrix(data.frame(dbr[,-1]))
+```
+
+So the observed difference of 3.13 points in the CBR between Sweden and Kazakhstan 
+results from a compositional effect of +7.63 and a difference in rates of -4.51. 
+
+::: stata
+I wrote a Stata program that can do these calculations for data in "wide" format. 
+In net-aware Stata type `net from https://grodri.github.io/demography` and 
+check out the `ddrate` command.
+:::
+
+### Age-Patterns of Mortality
+
+So far we have focused on attempts to summarize mortality in a single number, 
+but why not look at the complete set of rates? I would like to plot the rates 
+using the mid-points of the ages groups (with 87.5 for 85+). To compute these 
+I first convert age from a string to numbers (1 to 19) and then figure out the 
+midpoint of each group.
+
+```s
+	encode ageg, gen(agei)    // "05-9" becomes 3
+	gen agem = 5*agei - 7.5   // 3 becomes 7.5
+	replace agem = 0.5 if ageg == "0"
+	replace agem = 3   if ageg == "01-4"
+```
+
+```r
+	p21 <- mutate(p21, 
+	  agei = as.numeric(as.factor(ageg)), 
+	  age = ifelse(agei > 2, 5*agei - 7.5, ifelse(agei == 1, 0, 3)))
+```
+
+We then plot the rates using a log scale (otherwise we wouldn't see much)
+
+```s
+	twoway (line rate agem if country=="Sweden")   ///
+       (line rate agem if country=="Kazakhstan")   ///
+      , yscale(log) ylabel(50 100)                 ///
+      title("Age-Specific Mortality Rates")        ///
+      xtitle("Age") ytitle("log(ASMR)")            ///
+      legend(order(2 "Kazakhstan" 1 "Sweden") ring(0) pos(5) cols(1))
+	graph export swkzasmr.png, replace width(500) height(400)
+```
+
+![](swkzasmr.png){.stata}
+
+```r
+	library(ggplot2)
+	ggplot(p21, aes(x=age, y=log(rates), color=country)) + geom_line()
+	ggsave("swkzasmrr.png", width=500/72, height=400/72, dpi=72) 
+```
+
+![](swkzasmrr.png){.r}
+
+We see clearly that mortality is higher in Kazakhstan than in Sweden at every 
+age. The lines are not exactly parallel, in fact the relative difference seems 
+to become smaller at older ages. (We will discuss later how heterogeneity can 
+produce this type of convergence.)
+
+### The Modern Regression Approach
+
+The aim of standardization is to control for a compositional variable. This, of 
+course, is also one of the aims of regression analysis. I now show how one could 
+analyze the data using Poisson regression, a method appropriate for count data.
+
+This regression technique assumes that the number of deaths has mean (and 
+variance) given by the product of a rate and exposure time. The log of the mean 
+is then the log of the rate (which is modeled using a linear predictor, just as 
+in linear regression) times the log of exposure (which is defined as an offset, 
+or a fixed part of the linear predictor). That's why the code below computes 
+the log of the mid-year population counts. We also represent country using a 
+dummy variable for Kazakhstan.
+
+```s
+	gen logexpo = log(pop)
+	gen kz  = country == "Kazakhstan"
+	poisson deaths i.agei kz, offset(logexpo) nolog
+	di exp(_b[kz])
+```
+
+```r
+	p21 <- mutate(p21, logexpo = log(pop), kz = as.numeric(country=="Kazakhstan"))
+	fit <- glm(deaths ~ ageg + kz + offset(log(pop)), data = p21, family = poisson)
+	coef(summary(fit))
+	exp(coef(fit)["kz"])
+```
+
+Exponentiating the coefficient of Kazakhstan, we see that on average age-specific 
+mortality is 61.5% higher than in Sweden, a result very similar to the 61.2% that 
+we obtained using direct standardization.
+
+An advantage of the regression approach is that one can easily control for 
+multiple confounders. Also, we can test for the presence of an interaction, 
+which would question the validity of the additive model underlying direct 
+standardization. In this case, adding the interaction would make the model 
+saturated for this data, so we just test goodness of fit.
+
+```s
+	estat gof 
+```
+
+```r
+	data.frame(deviance = deviance(fit), df = fit$df.residual)
+```
+
+The deviance of 2218 on 18 df is highly significant, so we conclude that the 
+rates are not proportional. With data based on national counts, however, even 
+small differences can be statistically significant. This interaction represents 
+less than one percent of the combined effect of age and country.
+
+```s
+	di r(chi2_d)/e(chi2)
+```
+
+```r
+	deviance(fit)/(fit$null.deviance - deviance(fit))
+```
+
+If the discussion in the last section doesn't make much sense to you, don't 
+worry. Just make a note to come back and read it again after taking a course 
+on generalized linear models.
+
+<small>
+Updated 22-Jan-2016. 
+</small>

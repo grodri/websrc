@@ -1,0 +1,153 @@
+## Smoothing: Lowess
+
+We will work with data from the Colombia WFS Household Survey, conducted
+in 1975-76. I tabulated the age distribution of all household members
+and saved it in an ascci file, which we now read and plot:
+
+.include srtabs
+
+```s
+	infile age pop using ///
+	  https://grodri.github.io/datasets/cohhpop.dat, clear
+	line pop age , ///
+	  title(Colombia 1975-76) subtitle(WFS Household Survey) ///
+	  ytitle(population)
+	graph export cohhpop.png, width(500) replace
+```
+
+![](cohhpop.png){.img-responsive .img-center .stata}
+
+```r
+	library(ggplot2)
+	co <- read.table("https://grodri.github.io/datasets/cohhpop.dat",
+	  col.names=c("age","pop"), header=FALSE)
+	ggplot(co, aes(age, pop)) + geom_line() + ggtitle("Colombia WFS 1975-76")
+	ggsave("cohhpopr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](cohhpopr.png){.img-responsive .img-center .r} 
+
+As you can see, the distribution looks somewhat less smooth than the data
+from the Philippines that we studied earlier. Can you compute the Myers
+index for this distribution?
+
+### Running Means and Lines
+
+The simplest way to smooth a scatterplot is to use a *moving average*,
+also known as a "running mean". The most common approach is to use a
+window of *2k + 1* observations, *k* to the left and *k* to the right of
+each observation. The value of *k* is a trade off between smoothness of
+goodness of fit. Special care must be taken at the extremes of the
+range. [Stata can compute running means via `lowess` with the options
+`mean` and `noweight`. ]{.stata}
+
+A common problem with running means is bias. A solution is to use
+*weights* that give more importance to the closest neighbors and less to
+those farther away. A popular weight function is Tukey's tri-cube,
+defined as *w(d) = (1-|d|^3^)^3^* for *|d| < 1* and 0 otherwise,
+where *d* is the distance to the target point expressed as a fraction of
+the bandwidth. [Stata can do this calculation via `lowess` with the
+option `mean` if you omit `noweight`.]{.stata}
+
+An even better solution is to use *running lines*. We define again a
+neighborhood for each point, typically the *k* nearest neighbors on each
+side, fit a regression line to the points in the neighborhood, and then
+use it to predict a smoother value for the index observation. This
+sounds like a lot of work, but the calculations can be done efficiently
+using regression updating formulas. [Stata can compute a running line
+via `lowess` if you omit `mean` but include `noweight`. ]{.stata}
+
+Better still is to use *weighted running lines*, giving more weight to
+the closest observations, which is what the *lowess* smoother does. A
+variant follows this estimation with a few iterations to obtain a more
+robust line. This is clearly the best technique in the family. [Stata's
+`lowess` uses a weighted running line if you omit `mean` and `noweight`
+]{.stata}
+
+::: r 
+R implements the lowess smoother through the functions `lowess()` and
+the newer `loess()`, which uses a formula interface with one or more
+predictors and somewhat different defaults. The parameter `degree`
+controls the degree of the local polynomial; the default is 2 for
+quadratic, alternatives are 1 for linear and 0 for running means. Both
+implementations can use a robust estimator, with the number of
+iterations controlled by a parameter `iter` or `iterations`. Type
+`?loess` and `?lowess` in the R console for more information. In
+`ggplot()` you can overlay a lowess smoother by calling
+`geom_smooth()`.
+:::
+
+The figure below shows the Colombian data and a lowess smoother with a
+span or bandwidth equal to 25% of the data.
+
+```s
+	lowess pop age, bwidth(0.25) gen(smooth) title(Lowess Smoother)
+	graph export cohhrm.png, width(500) replace
+```
+
+![](cohhrm.png){.img-responsive .img-center .stata}
+
+```r
+	ggplot(co, aes(age, pop)) + geom_point() + 
+	  geom_smooth(span=0.25, se=FALSE) + ggtitle("Lowess Smoother")
+	ggsave("cohhrmr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](cohhrmr.png){.img-responsive .img-center .r} 
+
+You may want to try different badwidths to see how the results vary.
+
+### Digit Preference Revisited
+
+Smoothing the age distribution provides a better way to assess digit
+preference than Myers' blending. Let us compute the last digit of age
+and tabulate it over the entire range of the data using the observed
+frequencies and a lowess smoother.
+
+```s
+	gen lastdigit = mod(age,10)
+	tab lastdigit [fw=pop], matcell(obs)
+```
+
+```r
+	library(dplyr)
+	N <- sum(co$pop)
+	obs <- co |> 
+	  mutate(last_digit = age %% 10) |> group_by(last_digit) |>
+	  summarize(prop = sum(pop)/N)
+	obs
+```
+
+The raw frequencies show evidence of preference for ages ending in 0 and
+5, which is very common, and probably 2 as well. We now use the smooth
+as weight
+
+```s
+	tab lastdigit [aw=smooth], matcell(fit)
+```
+
+```r
+	lf <- as.data.frame(lowess(co$age, co$pop, f = 0.25))
+	M <- sum(lf$y)
+	fit <- lf |> mutate(last_digit = x %% 10) |> group_by(last_digit) |>
+	  summarize(prop = sum(y)/M)
+	fit
+```
+
+The smoothed frequencies show that we expect fewer people at higher
+digits, even in a smooth distribution, with more ending in 0 than 9. We
+are now ready to compute an index of digit preference, defined as half
+the sum of absolute differences between observed and smooth frequencies:
+
+```s
+	mata: obs = st_matrix("obs"); fit = st_matrix("fit")
+	mata: sum(abs(obs/sum(obs) - fit/sum(fit)))/2
+```
+
+```r
+	sum( abs(obs$prop - fit$prop) )/2
+```
+
+We see that we would need to reshuffle 5.5% of the observations to
+eliminate digit preference. You may wish to compare this result with the
+Myers index.

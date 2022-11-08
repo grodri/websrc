@@ -1,0 +1,84 @@
+
+## Coale's Marital Fertility Model
+
+Here's a quick run showing how to fit Coale's model of marital
+fertility using Poisson regression. This is the original example in
+Brostrom (1985), Demography, 22:625-631. File `brostrom.dat` in the
+datasets section has the births, exposure, and the five-year standards
+`na` and `va` in comma-separated format.
+
+.include srtabs
+
+```s
+	clear
+	import delimited using https://grodri.github.io/datasets/brostrom.dat, clear
+```
+
+```r
+	br <- read.csv("https://grodri.github.io/datasets/brostrom.dat", header=TRUE)
+```
+
+We treat births as Poisson and the log of exposure time times natural
+fertility as an offset:
+
+```s
+	gen os = log(expo * na)
+	poisson births va, offset(os)
+```
+
+```r
+	pr <- glm(births ~ va + offset(log(exposure * na)), data=br, family=poisson)
+	pr
+```
+
+We find that *log M = -0.027* (so *M = 0.973*) and *m = 0.358*,
+indicating substantial control of fertility. Brostrom obtained *log M =
+-0.026* and *m = 0.361* using GLIM. Stata and R usually go an extra
+iteration.
+
+To check model fit we can compare observed and fitted rates or use a
+formal chi-squared test:
+
+```s
+	estat gof
+	gen am = age + 2.5
+	gen obs = births/expo
+	predict fv
+	gen fit = fv/expo
+	scatter obs am || line fit am, title(Brostrom's Example) ///
+	  legend(off) xtitle(age) ytitle(marital fertility)
+	graph export brostrom.png, width(500) replace
+```
+
+![](brostrom.png){.img-responsive .img-center .stata}
+
+```r
+	library(dplyr)
+	library(ggplot2)
+	br <- mutate(br, obs = births/exposure, fit = fitted(pr)/exposure)
+	ggplot(br, aes(age, obs)) + geom_point() + geom_line(aes(age,fit))
+	ggsave("brostromr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](brostromr.png){.img-responsive .img-center .r} 
+
+The model fits pretty well, although it slightly overestimates fertility in
+the youngest age group, 20-24. For comparison, here are the estimates
+one would obtain using OLS as in the textbook (page 206).
+
+```s
+	gen y = log(obs/na)
+	reg y va, noheader
+```
+
+```r
+	lm(log(obs/na) ~ va, data=br)
+```
+
+The results are similar, with *logM = -0.29* and *m = 0.393*.
+
+A useful diagnostic plot is *log(f(a)/n(a))* versus *v(a)*; under the model 
+that relationship should be a straight line, which is then estimated by OLS
+or Poisson maximum likelihood. For an example see Box 9.3 in the textbook.
+
+

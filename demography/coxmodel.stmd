@@ -1,0 +1,108 @@
+
+## Cox's Proportional Hazards Model {#cox .first}
+
+We continue our analysis of the leukemia remission times introduced in
+the context of the [Kaplan-Meier](KaplanMeier) estimator. This is the
+dataset used as an example in Cox's original paper: Cox, D.R. (1972)
+Regression Models and Life tables, (with discussion) Journal of the
+Royal Statistical Society, 34: 187--220.
+
+.include srtabs
+
+```s
+	use https://grodri.github.io/datasets/gehan, clear    
+	stset weeks, failure(relapse)
+```
+
+```r
+	library(survival)
+	library(dplyr)
+	library(ggplot2)
+	gehan <- read.table("https://grodri.github.io/datasets/gehan.dat")
+	summarize(gehan, events = sum(relapse), exposure = sum(weeks))
+```
+We fit a model that assumes a proportional effect of treatment at all
+durations. There are different ways of handling ties and we choose the
+Efron method, which is an option in Stata and the default in R.
+
+```s
+	// gen treated = group == "treated"
+	stcox treated, efron
+```
+
+```r
+	gehan <- mutate(gehan, treated = as.numeric(group == "treated"))
+	cm <- coxph(Surv(weeks, relapse) ~ treated, data = gehan)
+	cm
+	exp(coef(cm)) - 1
+```
+
+The results show that at any given duration since remission, the risk of
+relapse is 79% *lower* in the treated group.
+
+To check the assumption of proportionality of hazards one may introduce
+interactions with duration. In a two-group analysis like this it is also
+possible to plot the Kaplan-Meier estimates. Here's the plot in Cox's
+paper
+
+```s
+	predict S0, basesurv            // control (not mean!)
+	gen S1 = S0^exp(_b[treated])    // treated
+	sts gen KM = s, by(treated)     // two Kaplan-Meiers
+	twoway (scatter S0  _t, c(J) ms(none) sort)  /// baseline
+	  (scatter S1 _t , c(J) ms(none) sort)     /// treated
+	  (scatter KM _t if treated, msymbol(circle_hollow)) /// KM treated
+	  (scatter KM _t if !treated, msymbol(X)) /// KM base
+	, legend(off) title(Kaplan-Meier and Proportional Hazards Estimates)   
+	graph export coxkm.png, width(500) replace          
+```
+
+![](coxkm.png){.stata}
+
+
+```r
+	km <- survfit(Surv(weeks, relapse) ~ treated, data=gehan)
+	sf <- survfit(cm, newdata=list(treated=c(0, 1)))   
+	dsf <- data.frame(time = rep(c(0,sf$time), 2),
+	  survival = c(1, sf$surv[,1], 1, sf$surv[,2]), 
+	  group = factor(rep(c("control","treated"),
+	  rep(length(sf$time) + 1, 2))))
+	dkm <- data.frame(time = km$time, 
+	  survival = km$surv,
+	  group = factor(rep(c("control","treated"),
+	  km$strata)))    
+	ggplot(dsf, aes(time, survival, color = group)) + geom_step() +
+	  geom_point(data = dkm, aes(time, survival, shape=group), color="black") +
+	  scale_shape_manual(values = c(4, 1))  # x and o
+	ggsave("coxkmr.png", width=500/72, height=400/72, dpi=72) 
+```
+
+![](coxkmr.png){.r}
+
+Another way to check proportionality of hazards is to plot the log-log
+transformation of the survival functions versus log time, that is
+[−*log*(−*log*(*S*(*t*))]{.math .inline} versus [log(*t*)]{.math
+.inline}, as the lines should then be parallel if the assumption holds.
+
+```s
+	stphplot, by(treated) legend(off) title(Plot of log-log Survival)
+	graph export coxphplot.png, width(500) replace
+```
+
+![](coxphplot.png){.stata}
+
+```r
+	dkm <- mutate(dkm,  lls = -log(-log(survival)))
+	ggplot(dkm, aes(log(time), lls, color=group)) + geom_point() +
+	  geom_line() +  ylab("-log(-log(S(t)))")
+	ggsave("coxphplotr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](coxphplotr.png){.r}
+
+The two lines look quite parallel indeed, showing a good fit of the
+proportional hazards assumption.
+
+A more detailed treatment of these topics may be found in my [survival
+analysis course](/pop509). The discussion here is an excerpt from the
+pages dealing with Kaplan-Meier and Cox regression.

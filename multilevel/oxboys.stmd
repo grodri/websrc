@@ -4,19 +4,18 @@
 We will replicate the analysis in Goldstein (1995), Sections 6.4 and 6.5
 starting on page 91, dealing with the height of school boys measured on
 nine occassions between ages 11 and 13. An analysis using MLwiN macros
-is available [here](https://data.princeton.edu/pop510/mln3), but we will
-use Stata and R.
+is available [here](mln3), but we will use Stata and R.
 
 ### The Data
 
-The data are available on the course website as `oxboys.dta`. We read
+The data are available on this website as `oxboys.dta`. We read
 the data and plot the individual growth curves. Note that age is
 centered at 12.25.
 
 .include srtabs
 
 ```s
-	use https://data.princeton.edu/pop510/oxboys.dta, clear
+	use https://grodri.github.io/datasets/oxboys.dta, clear
 	twoway  line height age, connect(ascending) color(gs12) ///
 	  || scatter height age, color(black) legend(off) ///
 	  title(Height of 26 boys at ages 11 to 13) ///
@@ -30,7 +29,7 @@ centered at 12.25.
 	library(haven)
 	library(ggplot2)
 	library(dplyr)
-	oxboys <- read_dta("https://data.princeton.edu/pop510/oxboys.dta")
+	oxboys <- read_dta("https://grodri.github.io/datasets/oxboys.dta")
 	ggplot(group_by(oxboys, id), aes(age, height, group=id)) + 
 	  geom_line(color="#c0c0c0") + geom_point() + 
 	  ggtitle("Height of 26 boys at ages 11 to 13")

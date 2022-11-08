@@ -26,7 +26,7 @@ fertility decline first used in Section 2.1. To read the data from
 net-aware Stata type
 
 	infile str14 country setting effort change ///
-		using https://data.princeton.edu/wws509/datasets/effort.raw, clear
+		using https://grodri.github.io/datasets/datasets/effort.raw, clear
 
 To whet your appetite, here's the plot that we will produce in this
 section:

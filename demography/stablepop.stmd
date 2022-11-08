@@ -1,0 +1,383 @@
+
+## Stable Populations
+
+In this unit we do some stable population calculations, including
+determination of the intrinsic growth rate, as illustrated in Box 7.1,
+and computing the stable equivalent age distribution, as illustrated in
+Box 7.2 in the textbook.
+
+.include srtabs
+
+### The Population of Egypt
+
+We showed in the previous unit how to calculate *r* from the first
+eigenvalue of the Leslie Matrix. We now use the Egyptian example in Box
+7.1 to illustrate Coale's method. We start by entering person-years
+lived for ages 15-19 to 45-49, the maternity function at those ages, and
+the midpoints of the age groups.
+
+```s
+	mata:
+	  L = (4.66740, 4.63097, 4.58518, 4.53206, 4.46912, 4.39135, 4.28969)
+	  m = (0.00567, 0.06627, 0.11204, 0.07889, 0.05075, 0.01590, 0.00610)
+	  a = (15,20,25,30,35,40,45) :+ 2.5
+	end
+```
+
+```r
+	L <- c(4.66740, 4.63097, 4.58518, 4.53206, 4.46912, 4.39135, 4.28969)
+	m <- c(0.00567, 0.06627, 0.11204, 0.07889, 0.05075, 0.01590, 0.00610)
+	a <- c(15, 20, 25, 30, 35, 40, 45) + 2.5
+```
+
+#### The Net Reproduction Ratio
+
+The Net Reproduction Ratio NRR is easily computed as the sum of the
+products of the survival ratios and the maternity function:
+
+```s
+	mata:
+	nrr = sum( L :* m )
+	nrr
+end
+```
+
+```r
+	nrr <- sum(L * m)
+	nrr
+```
+
+The NRR is 1.527 daughters per woman, in agreement with the textbook.
+
+#### Coale's Method for Estimating r
+
+Next we solve Lotka's equation. The first thing we need is a little
+function *f(r)* to compute a discrete approximation to Lotka's integral
+(equation 7.10b in the text). We then use Coale's method, which
+approximates the first derivative *f'(r)* as minus the product of the
+function and the true mean age of childbearing in the stable population
+*A*, which of course is not known, so we use an estimate. The code below
+starts from *r = log(NRR)/A* with *A = 27*.
+
+```s
+	capture mata mata drop f()
+	capture mata mata drop coale()
+	mata:
+	  function f (real scalar r, real vector a, real vector L, real vector m) {
+	    return(sum(exp(-r:* a) :* L :* m))
+	  }
+	  function coale(nrr, a, L, m) {
+	    r = log(nrr)/27
+	    delta = 1
+	    while (delta > 1e-8) {
+	      r0 = r
+	      f0 = f(r0, a, L, m)
+	      r = r0 + (f0 - 1)/27
+	      delta = abs(r - r0)
+	      printf(" %10.8f\n", r)
+	    }
+	  return(r)
+	  }
+	  coale(nrr, a, L, m)
+	end     
+```
+
+```r
+	f <- function(r, a, L, m) {
+	  sum(exp(-r * a) * L * m)
+	}
+	coale <- function(nrr, a, L, m) {
+	  r <- log(nrr)/27
+	  delta <- 1
+	  while(delta > 1e-8) {
+	    r0 <- r
+	    f0 <- f(r0, a, L, m)
+	    r <- r0 + (f0 - 1)/27
+	    delta <- abs(r - r0)
+	    cat(r,"\n")     
+	  }
+	  r
+	}
+	coale(nrr, a, L, m)
+```
+
+After three iterations we agree with the textbook and after six the rate
+of growth changes by less than 1e-8.
+
+An alternative is to use Newton's method by calculating the exact first
+derivative, which I do below by writing a short function *g(r)*. With
+the same starting value
+
+```s
+	capture mata mata drop g()
+	capture mata mata drop newton()
+	mata:
+	function g(r, a, L, m) {
+	  return( -sum(a :* exp(-r :* a) :* L :* m) )
+	}
+	function newton(nrr, a, L, m) {
+	  r = log(nrr)/27
+	  delta = 1
+	  while(delta > 1e-8) {
+	    r0 = r
+	    f0 = f(r0, a, L, m)
+	    g0 = g(r0, a, L, m)                      
+	    r = r0 + (1 - f0)/g0
+	    delta = abs(r - r0)
+	    A = -g0/f0
+	    printf("%10.8f  %10.4f\n", r, A)  
+	  }
+	  return(r)
+	}
+    r = newton(nrr, a, L, m)
+    end
+```
+
+```r
+	g <- function(r, a, L, m) {
+	  -sum(a * exp(-r * a) * L * m)
+	}
+	newton <- function(nrr, a, L, m) {
+	  r <- log(nrr)/27
+	  delta <- 1
+	  while(delta > 1e-8) {
+	    r0 <- r
+	    f0 <- f(r0, a, L, m)
+	    g0 <- g(r0, a, L, m)  
+	    r <- r0 + (1 - f0)/g0
+	    delta <- abs(r - r0)
+	    A <- -g0/f0
+	    cat(r,A,"\n")  
+	  }
+	  data.frame(r=r, A=A)
+	}
+	newton(nrr, a, L, m)
+```
+
+Newton converges a bit quicker, in only four iterations, and as a bonus
+we get the mean age of childbearing in the stable population, which is
+29.47.
+
+Lotka used a quadratic expansion to obtain an approximate solution that
+does not require iteration.
+
+### The Population of the U.S.
+
+Let us now turn to the example in Box 7.2, which involves the female
+population of the U.S. in 1991. The data include the actual age
+distribution as well as the person-years lived and the maternity
+function. These are available in a text file called `prestonBox72.dat`
+in the datasets section.
+
+```s
+	infile age ca L m using ///
+	  https://data.princeton.edu/eco572/datasets/prestonBox72.dat, clear
+	list
+```
+
+```r
+	box72 <- read.table("https://data.princeton.edu/eco572/datasets/prestonBox72.dat",
+	  header=FALSE)
+	names(box72) <- c("age", "ca", "L", "m")
+	box72
+```
+
+#### Eigenanalysis of the Leslie Matrix
+
+The first step will be to construct a Leslie matrix and compute the
+first eigenvalue and eigenvector. For this purpose we source again the
+code we used in the population projection log.
+
+```s
+	capture mata mata drop Leslie()
+	quietly do https://grodri.github.io/demography/leslie.mata
+	mata:
+	  L = st_data(.,"L")
+      m = st_data(.,"m")
+      M = Leslie(L, m)
+      values = J(0, 0, .)
+      vectors = J(0, 0, .)
+      eigensystem(M, vectors, values)
+      values[1]
+      log(values[1])/5
+      sa = Re(vectors[,1]/sum(vectors[,1]))
+	end
+```
+
+```r
+	source("https://grodri.github.io/demography/leslie.R")
+	M <- Leslie(box72$L, box72$m)
+	e <- eigen(M)
+	Re(e$values[1])
+	log(Re(e$values[1])/5)
+	sa <- Re(e$vectors[,1])
+	sa <- sa/sum(sa)
+```
+
+The intrinsic rate of growth of the U.S. in 1991 was *r = -0.0001665*.
+If the observed fertility and mortality patterns were to prevail, the
+population of the U.S. would eventually decline about 0.017% per year.
+
+#### Estimating r using Coale's Method
+
+Let us now calculate the rate using Coale's method to solve Lotka's
+equation iteratively. We start by computing the NRR, which as you would
+expect is less than one. We also need the midpoints of the age groups.
+For the last group we use 6.79, life expectancy at age 85, as in the
+textbook
+
+```s
+	mata
+     nrr = sum( m :* L )
+     nrr             
+	 a = range(0,85,5) :+ 2.5
+     a[18] = 85 + 6.79
+     coale(nrr, a, L, m)
+	end
+```
+
+```r
+	library(dplyr)
+	nrr <- sum(box72$m * box72$L)
+	box72 <- mutate(box72, a = ifelse(age < 85, age + 2.5, 85 + 6.79))
+	coale(nrr, box72$a, box72$L, box72$m)
+```
+
+As you can see, the method settles on r = -0.0001665, in agreement with
+the earlier result. Let us try using the exact first derivative
+
+```s
+	mata
+      r = newton(nrr, a, L, m)
+-	end
+```
+
+```r
+	n <- newton(nrr, box72$a, box72$L, box72$m)
+	r <- n$r
+```
+
+The method converges very quickly and gives a mean age of childbearing
+in the stable population of 26.479. Note that there is a typo in the
+textbook, which reports *r* as -.00018 on page 150.
+
+#### Obtaining the Equivalent Age Distribution
+
+The final step will be to calculate the stable equivalent age
+distribution. This is a simple function of *r* and the person-years
+lived. (It also involves the birth rate, but that is also a function of
+*r* and person-years lived.) Below we compute *b* and then the stable
+age distribution, which we compare to the eigenvector
+
+```s
+	mata:
+      b = 1/sum( exp(-r*a) :* L )
+      b
+      saa = b * exp(-r*a) :* L        
+      st_store(.,st_addvar("float","sa"), sa)
+      st_store(.,st_addvar("float","saa"), saa)
+	end
+	list age ca sa saa      
+```
+
+```r
+	b <- 1/sum(exp(-r * box72$a) * box72$L)
+	b
+	saa <- b * exp(-r * box72$a) * box72$L
+	cbind(box72$ca, sa, saa)
+```
+
+As you can see, the two calculations of the stable equivalent age
+distribution give essentially the same result. Watcher's textbook
+explains why this is so.
+
+Let us now plot the current and stable age distributions using the
+midpoints of the age groups
+
+```s
+	mata st_store(.,st_addvar("float","am"), a)
+	line ca sa am, lpat(dash solid) ///
+	  xtitle("age") ytitle(Prop in 5-year age group) ///
+	  title(Actual and Stable Equivalent Age Distributions) ///
+	  subtitle(U.S. females 1991) ///
+	  legend(order(1 "Actual" 2 "Stable") col(1) ring(0) pos(1))
+	graph export stablepop.png, width(500) replace
+```
+
+![](stablepop.png){.img-responsive .img-center .stata}
+
+```r
+	library(tidyr)
+	library(ggplot2)
+	box72$sa <- saa	
+	g72 <-  select(box72, age=a, current=ca, stable=sa) |> 
+	  gather(key = "distribution", value= "proportion", -age)	 
+	ggplot(g72, aes(age, proportion, color=distribution)) + geom_line() +
+	  ggtitle("U. S. Females 1991")
+	ggsave("stablepopr.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](stablepopr.png){.img-responsive .img-center .r} 
+
+The graph reproduces Figure 7.4 in the textbook, showing how the 1991 age
+distribution has proportionately more people at younger ages (up to
+40-44) and fewer at older ages (45-49 and up).
+
+#### A Preview of Momentum
+
+The youthful U.S. agre structure means that, at 1991 rates, the U.S.
+population would continue to grow for a while before it starts to
+decline, so it has positive population momentum. How long would it grow
+and what size would it reach? The following code snipet answers both
+questions
+
+```s
+	mata:
+	  delta = 1
+	  c0 = st_data(.,"ca")  // current age distribution
+	  n=0
+	  first = 1
+	  while (delta > 1e-8) {
+	    c1 = M * c0
+	    r1 = log(sum(c1)/sum(c0))/5
+	    delta = abs(r1-r)
+	    n++
+	    // print when pop first declines
+	    if(r1 < 0 & first) {
+	      n, sum(c1), r1, delta
+	      first = 0
+	    }
+	    c0 = c1
+	  }
+	  n, sum(c1), r1
+	end
+```
+
+```r
+	delta <- 1
+	c0 <- box72$ca
+	n <- 0
+	first <- TRUE
+	while (delta > 1e-8) {
+	  c1 <- M %*% c0
+	  r1 <- log(sum(c1)/sum(c0))/5
+	  delta <- abs(r1 - r)
+	  n <- n + 1
+	  if(r1 < 0 & first) {
+	    cat(n, sum(c1), r1, delta, "\n")
+	    first <- FALSE
+	  }
+	  c0 <- c1
+	}
+	data.frame(n, size = sum(c1), r1)
+```
+
+We see that the population grows for 9 projection periods (45 years),
+reaching a size 13.84% larger than in 1991, and then heads for
+extinction, with the growth rate reaching -0.0001665 (to a close
+approximation) after 56 projection periods (280 years), at which time it
+is still 8.45% larger than at the start. (So extinction is not
+imminent!)
+
+*Question*: On our way to the stable age distribution we computed the
+intrinsic birth rate. What's the intrinsic death rate?

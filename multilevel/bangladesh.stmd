@@ -218,7 +218,7 @@ is 7th.]{.stata}
 ```
 
 ```r	
-	source("https://raw.githubusercontent.com/grodri/websrc/main/multilevel/gauher.R")
+	source("https://grodri.github.io/multilevel/gauher.R")
 	gh <- gauher(12) # z is abscissa and w is weight
 	sig <- sqrt(unlist(VarCorr(ri7)))
 	u <- r <- 0 

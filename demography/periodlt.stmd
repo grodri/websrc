@@ -1,0 +1,182 @@
+
+## Period Life Table Construction
+
+Here's how to reproduce the calculations in Box 3.1 of Preston et a.
+(p. 49) using your statistical package as a calculator. First read the
+data and compute the width of each age interval.
+
+.include srtabs
+
+```s
+	infile age N D using ///
+	  https://grodri.github.io/datasets/preston31.dat, clear
+	gen n =  age[_n+1] - age // leaves width of last interval missing
+	replace n = 0 in -1
+```
+
+```r
+	library(dplyr)
+	b31 <- read.table("https://grodri.github.io/datasets/preston31.dat",
+	  col.names = c("age", "N", "D"))
+	b31 <- mutate(b31, n = c(diff(age), 0))
+```
+
+The calculations are pretty straightforward. The numbers below refer to
+the numbered steps in the textbook. [To ensure full precision I use
+doubles; floats are good for only about 7 digits, and this
+can be a problem with large numbers such as *~n~L~x~*.]{.stata}
+
+**1**. Compute death rates dividing events by exposure.
+
+```s
+	gen m = D/N
+```
+
+```r
+	b31 <- mutate(b31, m = D/N)
+```
+
+**2**. Next we need the time lived by deaths *~a~n~x~*. Preston et al.
+borrow these values for ages 5 to 75 from Keyfitz and Flieger (1971),
+p.21. I saved those values in a Stata file so I can easily merge them
+here.
+
+```s
+	sort age
+	merge 1:1 age using https://grodri.github.io/datasets/kfnax
+```
+
+```r
+	library(haven)
+	kfnax <- read_dta("https://grodri.github.io/datasets/kfnax.dta")
+	b31 <- inner_join(b31, kfnax, by="age")
+```
+
+The factors for ages 0-1 and 1-4 are based on the Coale-Demeny equations
+under age 5, which depends on the mortality rate at age 0. The value for
+the last age is not used, but we replace it to avoid confusion.
+
+```s
+	rename nax a // for simplicity
+	replace a = cond(m[1] >= 0.107, 0.330, 0.045 + 2.684 * m[1]) in 1
+	replace a = cond(m[1] >= 0.107, 1.352, 1.651 - 2.816 * m[1]) in 2
+	replace a = 0 in -1
+```
+
+```r
+	b31 <- rename(b31, a = nax)  # for simplicity
+	cond <- rep(b31[1,"m"] >= 0.107, 2) # condition must be a vector here
+	b31[1:2,"a"] <- ifelse(cond, c(0.330, 1.352) ,
+	  b31[1:2,"a"] <- c(0.045, 1.651) + c(2.684, -2.816)* b31[1,"m"])
+	last <- nrow(b31)
+	b31[last,"a"] <- 1/ b31[last,"m"]
+```
+
+**3**. Convert the death rates to probabilities using the *~a~n~x~*
+factors, and<br/>
+**4**. Compute conditional survival probabilities as the complements
+
+```s
+	gen double q = n * m/(1 + (n - a)*m)
+	replace q = 1 in -1
+	gen double p = 1 - q
+```
+
+```r
+	b31 <- mutate(b31, q = n * m/(1 + (n - a) * m), p = 1 - q)
+	b31[last, c("q","p")] = c(1, 0)
+```
+
+**5**. Generate the survival function starting with a radix of 100,000.
+Note that each value of *l~x~* depends on the previous value
+
+```s
+	gen double lx = 100000 in 1
+	quietly replace lx = lx[_n-1] * p[_n-1] in 2/-1
+```
+
+```r
+	b31 <- mutate(b31, lx = 100000 * cumprod( c(1, p[-last])))
+```
+
+**6**. Compute deaths by differencing the survival function and noting
+that in the end everyone dies
+
+```s
+	generate d = lx - lx[_n + 1]
+	replace d = lx in -1
+```
+
+```r
+	b31 <- mutate(b31, d = c(-diff(lx), lx[last]))
+```
+
+**7**. Calculate person-years lived in each age group, which is *n* for
+those who survive the age group and *~a~n~x~* for those who die, and<br/>
+**8**. Accumulate from the bottom up, which we do subtracting a running
+sum from the total
+
+```s
+	gen double L = n * lx[_n+1] + a * d // not to be confused with D
+	replace L = lx/m in -1
+	quietly summarize L // to gen the sum
+	gen double T = r(sum) - sum(L) + L
+```
+
+```r
+	b31 <- mutate(b31, L =  (lx - d) * n +  d * a,
+	  T = sum(L) - cumsum(L) + L)
+```
+
+**9**. Finally calculate expectation of life by dividing the time lived
+after each age by the survivors at the beginning of the age
+
+```s
+	gen e = T/lx
+```
+
+```r
+	b31 <- mutate(b31, e = T/lx)
+```
+
+And we are ready to print out results in two parts to match the
+textbook. [We  use a few formats to get an exact replica ]{.stata}
+
+```s
+	format %6.3f a e
+	format %8.6f m q p
+	format %9.0fc N D lx d L T
+	format %8.6f m q p
+	list age N D m a q p
+	list age lx d L T e
+```
+
+```r
+	select(b31, age, N, D, m, a, q, p)
+	select(b31, age, lx, d, L, T, e)   
+```
+
+Finally we will plot the life table death rates against the mid-points
+of the age groups
+
+```s
+	gen am = ( age + age[_n+1] )/2
+	replace am = 90 in -1
+	line m am, xtitle(age) ytitle("log(m)") yscale(log) ///
+	  ylabel(.01 .05 .2) title("Austria, 1992") subtitle(males)
+	graph export aultm92.png, replace width(500)
+```
+
+![](aultm92.png){.img-responsive .img-center .stata}
+
+```r
+	library(ggplot2)
+	transmute(b31, age = age + ifelse(n>0, n/2, 5), m = m) |>
+	ggplot(aes(age,log(m))) + geom_line() + ggtitle("Austria, 1992 Males")
+	ggsave("aultm92r.png", width=500/72, height=400/72, dpi=72);
+```
+
+![](aultm92r.png){.img-responsive .img-center .r} 
+
+We see the usual pattern of human mortality, albeit without the detail of
+single-year data.

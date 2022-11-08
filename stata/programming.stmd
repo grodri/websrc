@@ -865,7 +865,7 @@ proportion married, compute fitted values based on the estimates in
 Rodríguez and Trussell (1980), and plot the results. It's all done in a
 handful of lines
 
-	use https://data.princeton.edu/eco572/datasets/cohhnupt, clear
+	use https://grodri.github.io/datasets/cohhnupt, clear
 	gen agem = age + 0.5
 	gen obs = ever/total
 	egen fit = pnupt(agem), mean(22.44) stdev(5.28) pem(.858)

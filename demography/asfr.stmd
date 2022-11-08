@@ -1,0 +1,338 @@
+
+## Age-Specific Fertility Rates
+
+I will illustrate the computation of single-year fertility rates from
+survey data using two approaches, one based on an exact tally of events
+and exposure by age, and a simple approximate method.
+
+We will use WFS data from Colombia and compute rates for the three-year
+period before the survey.
+
+.include srtabs
+
+Here's our final product
+
+![](coasfr.png){.stata .img-responsive .img-center}
+![](coasfrr.png){.r .img-responsive .img-center}
+
+As usual, we start by reading the data, an extract already prepared.
+
+```s
+	use https://grodri.github.io/datasets/cofertx, clear
+```
+
+```r
+	library(foreign)
+	co <- read.dta("https://grodri.github.io/datasets/cofertx.dta")
+```
+
+This file is in "wide" format, with one record per woman, having her
+data followed by data for up to 24 births, one after the other. The
+layout of the file is as follows
+
+```
+    v007 v008 m012 [bn1 bn2 bn3 bn4 bn5] v702 v703
+```
+
+where *n* goes from `01` to `24` but at most 19 slots are used, the rest
+are filled with `8's` for "not used". We are particularly interested
+in `bn2`, the date of birth.
+
+We can work with the file in "wide" format or create separate files
+for women and births, with the births in "long" format". I'll use
+both approaches, wide with Stata and long with R. The variables `m012`,
+`v702` and `v703` are date of first union, type of place of residence,
+and childhood place of residence, respectively.
+
+```r
+	library(dplyr)
+	co <- mutate(co, id = row_number())
+	cow <- select(co, id, v007, v008, m012, v702, v703)
+	bvars <- c(paste("b0", 1:9, 2, sep=""), paste("b", 10:24, 2, sep=""))
+	bwide <- co[, c("v007", "v008", bvars)]
+	cob <- reshape(bwide, direction="long", varying = bvars, v.names = "bdate") |>
+	filter(bdate < 8888)
+```
+
+### Tallying Events and Exposure
+
+I will create variables called `bot` and `top` to define the window of
+observation. Exposure starts 36 months before the survey or when the
+woman turns 15, whichever is later. The date of interview is `v007` and
+the date ot birth of the woman is `v008`.
+
+```s
+	gen top = v007 - 1
+	gen bot = v007 - 36
+	gen turn15 = v008 + 180
+	replace bot = turn15 if turn15 > bot
+	drop if bot > top // 15 obs on month of interview
+```
+
+```r
+	cow <- mutate(cow,
+	  top = v007 - 1,     
+	  turn15 = v008 + 180,
+	  bot = ifelse(turn15 > v007 - 36, turn15, v007 - 36)) |>
+	  filter(bot <= top) # exclude 15 on month of interview           
+```
+
+A woman may contribute events and exposure to up to four different ages.
+The easiest way to handle this is to create a separate record for each
+year of age
+
+```s
+	gen agebot = int((bot - v008)/12)
+	gen agetop = int((top - v008)/12) // same as current age
+	gen nages = agetop - agebot + 1
+	gen id = _n
+```
+
+```r
+	cow <- mutate(cow, 
+	  agebot = floor((bot - v008)/12),
+	  agetop = floor((top - v008)/12),
+	  nages = agetop - agebot + 1)
+```
+
+To show exactly what's going on I'll list case 1 before and after the
+split
+
+```s
+	list v007 v008 bot top agebot agetop nages b012 b022 in 1
+	expand nages
+	bysort id: gen age = agebot + _n - 1
+	list v007 v008 id age bot top b012 b022 if id==1
+```
+
+```r
+	head(select(cow, id, v007, v008, bot, top, agebot, agetop, nages), 1)
+	i <- rep(1:nrow(cow), cow$nages)
+	cow <- cow[i, ]
+	cow <- group_by(cow, id) |> mutate(age = agebot + row_number() - 1)  
+	filter(cow, id==1) |> 
+	  select(id, v007, v008, bot, top, agebot, agetop, nages, age)
+```
+
+Now we have a record for each woman-year, with the age of the woman that
+year. We just have to fix the start and end date of each segment. A segment 
+starts at `bot` or at a birthday, and ends a year later or at `top`.
+
+```s
+	gen bday = v008 + 12*age
+	replace bot = bday if bday > bot
+	replace top = bday + 11 if bday + 11 < top
+	gen expo = top - bot + 1 // in months for now
+	list v007 v008 id age bot top expo b012 b022 if id==1
+```
+
+```r
+	cow <- mutate(cow, 
+	  bday = v008 + 12 * age,
+	  bot = ifelse(bday > bot, bday, bot),
+	  top = ifelse(bday + 11 < top, bday + 11, top),
+	  expo = top - bot + 1) 
+	filter(select(cow, v007, v008, age, bot, top, expo), id==1)       
+```
+
+All that remains is to count births in each age segment, [which we do by
+looping over the variables `b012 ... b242`. ]{.stata}[which we do by
+joining births by id and age of mother. ]{.r}
+
+```s
+	gen births = 0
+	forvalues i=1/24 {
+	  local n = "`i'"
+	  if `i' < 10 local n = "0`i'"
+	 qui replace births = births + 1 if b`n'2 >= bot & b`n'2 <= top
+	}
+	tab births
+	list v007 v008 id age bot top expo births if id==1
+```
+
+```r
+	cob <- mutate(cob, 
+	  age = floor((bdate - v008)/12)) |>
+	  filter(bdate >= v007 - 36 & bdate < v007 & age >= 15)
+	coba <- group_by(cob, id, age) |> summarize(births = n())        
+	cowb <- left_join(cow, coba, by = c("id", "age")) 
+	cowb$births[is.na(cowb$births)] <- 0
+```
+
+Finally we collapse the dataset by age (and any additional variables of
+interest, such as residence or education), express exposure in years
+rather than months, and compute the rates
+
+```s
+	collapse (sum) births (sum) expo, by(age)
+	replace expo=expo/12
+	gen asfr = births/expo
+```
+
+```r
+	cofr <- group_by(cowb, age) |> 
+	  summarize(
+	    births = sum(births),
+	    expo = sum(expo)/12,
+	    asfr = births/expo)
+```
+
+Let us compute the Total Fertility rate (TFR) and the mean age of the
+fertility schedule, for which we need the midpoints of the age groups.
+
+```s
+	sum asfr
+	di r(sum)
+	gen agem = age + 0.5
+	sum agem [aw=asfr]
+```
+
+```r
+	cofr <- mutate(cofr, agem = age + 0.5)
+	summarize(cofr, 
+	  tfr = sum(asfr), 
+	  mac = weighted.mean(agem, asfr))
+```
+
+The TFR is 4.53 and the mean age of childbearing is 28.7. To plot the
+rates we use the midpoints of the age groups. 
+
+```s
+	scatter asfr agem, xtitle(age)
+```
+
+```r
+	library(ggplot2)
+	ggplot(cofr, aes(agem, asfr)) + geom_line()
+```
+
+This is the curve labeled "exact" at the top of the page.
+The pattern looks quite reasonable, except perhaps for the rates at ages
+22 and 29 which seem a bit out of line. 
+[I'll save these results for later use.]{.stata}
+
+```s
+	save coasfr, replace
+```
+
+To compute rates for five-year age groups one can simply recode age and
+collapse again. You might find it instructive to do the calculation for
+five-year groups from scratch.
+
+::: stata
+Bruno Schoumaker (2013) has written a Stata command called `tfr2` to
+implement the procedures described here, see [Demographic Research, vol
+28, article 38](https://www.demographic-research.org/volumes/vol28/38/).
+His figure 5 should look familiar.
+:::
+
+### A Simple Approximation
+
+A much simple approach is to attribute events and exposure to the age of
+each woman in the middle of her observation period. Results are often
+very similar. (This is my preferred approach for fitting regression
+models, among other things because it keeps a single observation per
+woman.)
+
+We start by defining the observation window just as before
+
+```s
+	use https://grodri.github.io/datasets/cofertx, clear
+	gen top = v007 - 1
+	gen bot = v007 - 36
+	gen turn15 = v008 + 180
+	replace bot = turn15 if turn15 > bot
+	drop if bot > top // 15 on month of interview
+```
+
+```r
+	cos <- mutate(co,
+	  turn15 = v008 + 180,
+	  top = v007 - 1,
+	  bot = ifelse(turn15 > v007 - 36, turn15, v007 - 36)) |>
+	filter( bot <= top)
+```
+
+But we then simply counts events and exposure in the window and
+attribute them to age at the midpoint,
+
+```s
+	gen age = int( ((bot + top)/2 - v008)/12)
+	gen expo = top - bot + 1
+	gen births = 0
+	forvalues i=1/24 {
+	  local n = "`i'"
+	  if `i' < 10 local n = "0`i'"
+	    qui replace births = births+1 if b`n'2 >= bot & b`n'2 <= top
+	}
+	tab births
+```
+
+```r
+	cos$births <- 0
+	for(j in 1:24) {
+	  name <- paste(ifelse(j < 10, "b0", "b"), j, "2", sep="")
+	  cos$births <- cos$births + (cos[,name] >= cos$bot & cos[,name] <= cos$top)
+	}
+	cos <- mutate(cos, 
+	  age = floor(((bot + top)/2 - v008)/12),
+	  expo = top - bot + 1)
+```
+
+We now collapse and compute rates, as well as the TFR and mean age of
+childbearing
+
+```s
+	collapse (sum) births (sum) expo, by(age)
+	replace expo = expo/12
+	gen asfr = births/expo
+	sum asfr
+	di r(sum)
+	gen agem = age + 0.5
+	sum agem [aw=asfr]
+```
+
+```r
+	cofers <- group_by(cos, age) |>
+	summarize(
+	  births = sum(births),
+	  expo = sum(expo)/12) |>
+	  mutate( 
+	    asfr = births/expo,
+	    agem = age + 0.5)
+	summarize(cofers,
+	  tfr = sum(asfr),
+	  mac = weighted.mean(agem, asfr))
+```
+
+The TFR is 4.50 and the mean age of childbearing is 28.6.
+
+Let me merge the previous results to compare the exact and approximate
+estimates up to age 48. [I will rename the rates and drop births,
+exposure, and the age midpoints, to avoid name conflicts. ]{.stata}
+
+```s
+	rename asfr asfra
+	drop births expo agem
+	merge 1:1 age using coasfr
+	twoway (line asfr agem ) (line asfra agem, lp(dash)) , ///
+	  title("Age-Specific Fertility Rates") xtitle(age)  ///
+	  subtitle("Colombia WFS, 1976") note(3 Years Preceding the Survey) ///
+	  legend(ring(0) pos(1) order(1 "Exact" 2 "Approx.") cols(1) size(small))
+	graph export coasfr.png, width(500) replace
+```
+
+```r
+	codf <- data.frame( 
+	  age = rep(15:48, 2),
+	  asfr = c(cofr$asfr[-35], cofers$asfr),
+	  method = factor(rep(c("exact","approx"),rep(34,2)))
+	)
+	ggplot(codf, aes(age, asfr, color=method)) + geom_line() +
+	  ggtitle("Age-Specific Fertility Rates, Colombia WFS, 1976")
+	ggsave("coasfrr.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+This, of course, is the figure at the top of this page.
+
+<!-- need foreign for the code to work, haven breaks reshape -->

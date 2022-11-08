@@ -1,0 +1,356 @@
+
+## The Lee-Carter Model
+
+We apply the Lee-Carter approach to forecasting U.S. mortality, doing
+all calculations from first principles. This log is best read in
+conjunction with the class handout.
+
+Lee and Carter use U.S. mortality rates for conventional 5-year age groups 
+up to 85+ by single calendar years from 1933 to 1987, for both sexes. 
+
+The data can be obtained from [mortality.org](https://www.mortality.org).
+Register for an account, then select U.S.A., navigate to the row for life 
+tables, total, and the column for 5x1. Save the life table as a text file
+`bltper_5x1.txt`. This update uses the version last modified on 02 Jun 2022.
+
+The code below shows the steps I followed after saving the web page as 
+`bltper_5x1.txt`. We need to code age from the group labels and, more 
+importantly, compute the rate for the open-ended age group 85+. 
+For fitting purposes we select ages up to 85 and the years up to 1987,
+but later use more ages and years. 
+
+.include srtabs
+
+```s
+	import delimit using bltper_5x1.txt,  rowrange(3) varnames(3) ///
+	  delimit(" ", collapse) clear
+	replace age = "110" if age == "110+"
+	gen pos = strpos(age, "-")
+	replace age = substr(age, 1, pos - 1) if pos > 0
+	rename age age_s
+	gen age = real(age_s)   
+	save us1x5, replace // for later use
+	replace mx = lx/tx if age == 85
+	keep year age mx
+	keep if age <= 85 & year <= 1987
+```
+
+```r
+	library(dplyr)
+	library(stringr)
+	library(tidyr)
+	us <- read.table("bltper_5x1.txt", skip = 2, header=TRUE)
+	us <- mutate(us, age0 = as.numeric(str_extract(us$Age, "[0-9]+")),
+	  age = ifelse(age0 >= 5, age0 + 2.5, ifelse(age0 > 0, 3, 0.5)))
+	us85 <- mutate(us, mx = ifelse(Age == "85-89", lx/Tx, mx))
+	usmx <- select(us85, Year, age, mx) |> filter(age < 90)
+```
+
+Next we compute the log of the rates. 
+[The calculations that follow are a bit simpler if we reshape the data.]{.stata}
+[We will store them in a matrix of 55 years by 19 age groups.]{.r}
+
+```s
+	gen logm = log(mx)
+	drop mx
+	quietly reshape wide logm, i(age) j(year)
+```
+
+```r
+	rates <- filter(usmx, Year <= 1987)$mx
+	M <- matrix(log(rates), 55, 19, byrow = TRUE)
+```
+
+### Fitting the Model
+
+The first thing we need is the mean log-rate for each age group. This is
+easily computed using 
+[the `rowmeans` function in `egen`.]{.stata}
+[`colMeans()`.]{.r}
+The results are remarkably close to Table 1 in the original paper.
+
+```s
+	egen a = rowmean(logm1933 - logm1987)
+	list age a
+```
+
+```r
+	a <- colMeans(M)
+	a
+```
+
+The next step is to subtract the average age pattern **a** from all
+years. [To do this we copy the data into Mata ]{.stata}
+
+```s
+	mata: a = st_data(1::19, "a")
+	mata: Y = st_data(1::19, 2..56)
+	mata: Y = Y :- a
+```
+
+```r
+	for(j in 1:19) M[,j] <- M[,j] - a[j]
+```
+
+We are now ready to compute the Singular Value Decomposition (SVD),
+which writes **M** = **U D V**, where **U** and **V'** are orthogonal
+matrices and **D** is a diagonal matrix of singular values. 
+[Before we call the function we need to define the output matrices.]{.stata}
+[In fact we need just the first left and right singular vectors.]{.r}
+The first column of **U** times **D**~1,1~ times the first row of 
+**V'** has the best rank-1 approximation to the input matrix.
+
+```s
+	mata: U = d = Vt = J(0, 0, .)
+	mata: svd(Y', U, d, Vt)
+```
+
+```r
+	d <- svd(M, 1, 1)
+```
+
+Lee and Carter normalize the first row of **V** so it sums to one and
+call it **b**. This vector models how the different age groups react to
+mortality change.
+
+```s
+	mata: b = Vt[1,]/sum(Vt[1,])
+	mata: b[1..5] // partial list ...
+```
+
+```r
+	b <- d$v/sum(d$v)
+	head(b, 5) 
+```
+
+These values are remarkably close to the *b*'s published in Table 2.
+Lee and Carter also take the first column of **U**, multiply by
+**D**~1,1~ and multiply by the sum of the first row of **V'** (to
+cancel the division) and call that **k**. This vector captures overall
+mortality change over time.
+
+```s
+	mata: k = U[,1] * sum(Vt[1,]) * d[1]
+	mata: k[1..5]' // partial list...
+```
+
+```r
+	k <- d$u * sum(d$v) * d$d[1]
+	head(k, 5)
+```
+
+### Plotting Parameters and Fits
+
+The next task is to compute the Lee-Carter fits to the mortality rates
+in 1933 and 1987, reproducing part of Figure 2 in the original paper.
+[We are done with Mata, so we copy **b** and **k** into Stata.]{.stata}
+
+```s
+	mata: st_store(1::19, st_addvar("float","b"), b')
+	set obs 55 
+	mata: st_store(., st_addvar("float","k"), k)
+	gen fit1933 = a + b * k[1]
+	gen fit1987 = a + b * k[1987-1932]
+	gen agem = age + 2.5
+	replace agem = 0.5 in 1
+	replace agem = 3   in 2
+	twoway (scatter logm1933 agem) (line fit1933 agem) ///
+	  (scatter logm1987 agem) (line fit1987 agem) ///
+	 , title(Lee-Carter fits for 1933 and 1987) xt(age) legend(off)
+	graph export lcfig1.png, width(500) replace
+```
+
+![](lcfig1.png){.img-responsive .img-center .stata}
+
+```r
+	library(ggplot2)
+	usmx2 <- filter(usmx, Year==1933 | Year == 1987) |> 
+	  mutate(year = factor(Year),
+	    fit = c(exp(a + b * k[1]), exp(a + b * k[55])))
+	ggplot(usmx2, aes(age, mx, color=year)) + geom_point() + 
+	  geom_line(aes(age,fit,color=year)) + scale_y_log10() +
+	  ggtitle("Lee-Carter Fits for 1933 and 1987")
+	ggsave("lcfig1r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](lcfig1r.png){.img-responsive .img-center .r} 
+
+Here's the trajectory of *k*
+
+```s
+	gen t = 1932 + _n 
+	line k t, title("Lee-Carter k for 1933-1987") xt(year)
+	graph export lcfig2.png, width(500) replace
+```
+
+![](lcfig2.png){.img-responsive .img-center .stata}
+
+```r
+	trend <- data.frame(year = 1933:1987, k = k)
+	ggplot(trend, aes(year, k)) + geom_line() +
+	  ggtitle("Lee-Carter k for 1933-1987")
+	ggsave("lcfig2r.png", width = 500/72, height = 400/72, dpi = 72)  
+```
+
+![](lcfig2r.png){.img-responsive .img-center .r}
+
+### A Random Walk
+
+We now simulate the stochastic process driving **k**, a random walk with
+drift *-0.365* and innovations with standard deviation *0.652*. The idea
+is to generate normally distributed errors, add the drift, and them add
+to each value the previous one, which is easiest done as a running sum.
+We do this 50 times. 
+[For clarity I use a temporary variable called `e` for the errors ]{.stata}
+
+```s
+	set obs 61
+	gen n = _n
+	gen e = .
+	forvalues r = 1/50 {
+	  quietly replace e = rnormal() * 0.652 
+	  quietly gen     k`r' = -11.05     - 0.365 + e in 1
+	  quietly replace k`r' = k`r'[_n-1] - 0.365 + e in 2/L
+	}
+	twoway (line k1-k50 n), legend(off) xt(year) title(50 Random Walks)
+	graph export lcfig3.png, width(500) replace
+```
+
+![](lcfig3.png){.img-responsive .img-center .stata}
+
+```r
+	S <- matrix(0,61,50)
+	for(j in 1:50) S[,j] <- -11.05 + cumsum(-0.365 + rnorm(61, 0, 0.652))
+	df <- data.frame(S); df$year <- 1990:2050
+	ggplot(gather(df, sim, k, -year), aes(year, k, color = sim)) +
+	  geom_line() + guides(color = "none") + 
+	  ggtitle("Fifty Random Walks")
+	ggsave("lcfig3r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](lcfig3r.png){.img-responsive .img-center .r} 
+
+This being a simulation your results will differ from mine.
+You should note that there is considerable uncertainty about the level
+of mortality 50 years into the future.
+
+### Age-Specific Forecasts.
+
+Let us forecast age-specific mortality in 2050 starting from 1989. To
+this end we will use the official values of **a** and **b**, which I
+saved in a text file called `leecarter.dat` (also a Stata file
+`leecarter.dta`) in the datasets section. These values extend the two
+sets of parameters to age 105+, but are otherwise practically identical
+to the estimates we just obtained.
+
+Next we compute *k* starting from -11.05 in 1989. 
+[I call the resulting scalar `km` to avoid conflict with the variable `k`. ]{.stata}
+We also compute the standard deviation and a 95% confidence interval. 
+[At this point we restore the original data to get all ages ]{.stata}
+
+```s
+	use us1x5, clear
+	keep if age < 110
+	gen logm = log(mx)
+	keep age year logm
+	merge m:1 age using https://grodri.github.io/datasets/leecarter
+	gen agem = age + 2.5
+	quietly replace agem = 0.5 if age == 0
+	quietly replace agem = 3 if age == 1
+	scalar km  = -11.05 - 0.365*(2050 - 1989)
+	scalar sd = sqrt(2050 - 1989)*0.652
+	di km - 1.96*sd, km + 1.96*sd
+	gen p2050  = lc_a + lc_b *  km
+	gen lb2050 = lc_a + lc_b * (km - 1.96*sd)
+	gen ub2050 = lc_a + lc_b * (km + 1.96*sd)
+	twoway (rarea ub2050 lb2050 agem, color(ltblue)) (line p2050 agem) ///
+	  , legend(off) title(Forecast for 2050 with 95% CI) xt(age)
+	graph export lcfig4.png, width(500) replace
+```
+
+![](lcfig4.png){.img-responsive .img-center .stata}
+
+```r
+	lc <- read.table("leecarter.dat", header = TRUE)
+	k2050 <- 33.3
+	z <- qnorm(0.975)
+	se <- sqrt(2050 - 1989) * 0.652
+	k2050 + c(-1, 1) * z * se
+	forecast <- data.frame(age = lc$age,
+	  fit = exp(lc$a + lc$b * k2050),
+	  low = exp(lc$a + lc$b * (k2050 - z * se)),
+	  hi  = exp(lc$a + lc$b * (k2050 + z * se)))
+	ggplot(forecast, aes(age, fit)) + scale_y_log10() +
+	  geom_ribbon(aes(ymin = low, ymax = hi), fill="#d0d0d0") +
+	  geom_line() + ggtitle("Figure 4: Forecast for 2050 with 95% CI")
+	ggsave("lcfig4r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](lcfig4r.png){.img-responsive .img-center .r} 
+
+So we are 95% confident that *k* will be between -43.3 and -23.3 in 2050. 
+Finally we combine *k* and the **a** and **b** schedules to forecast and 
+plot age-specific mortality (in the log scale).
+
+### Corrected Jump-off
+
+The final issue concerns the choice of jump-off. Below we will make a
+"forecast" for 2013, the latest year for which we have data. The
+prediction is not too good for young adults because of a slight lack of
+fit in 1989 which propagates in the forecast. The solution is to
+"jump-off" from the actual 1989 rates.
+
+```s
+	keep if year == 1989 | year == 2013
+	drop _merge
+	reshape wide logm, i(age lc_a lc_b) j(year)     
+	scalar drift = -0.365 * (2013 - 1989)
+	scalar se    =  0.625 * sqrt(2013 - 1989)
+	scalar z  = invnormal(0.975)
+	gen p2013  =     lc_a + lc_b * (-11.05 + drift)
+	gen j2013  = logm1989 + lc_b * (         drift)
+	gen ub2013 = logm1989 + lc_b * (         drift - z * se)
+	gen lb2013 = logm1989 + lc_b * (         drift + z * se)
+	twoway (rarea ub2013 lb2013 agem, color(ltblue)) ///
+	  (scatter logm2013 agem if age < 110) ///
+	  (line p2013 agem, lpat(dash)) (line j2013 agem if age < 110) ///
+	, title(Observed and Forecast for 2013) xt(age) ///
+	  legend(order(3 "standard" 4 "jumpoff 1989") ring(0) pos(5) cols(1))   
+	graph export lcfig5.png, width(500) replace
+```
+
+![](lcfig5.png){.img-responsive .img-center .stata}
+
+```r
+	later <- select(us, age, Year, mx) |> filter(Year == 1989 | Year == 2013)
+	a89 <- log(filter(later, Year == 1989, age < 110)$mx)
+	k89 <-  -(2013 - 1989) * 0.365
+	se <- sqrt(2013 - 1989) * 0.652
+	y2013 <- filter(later, Year == 2013, age < 110) |>
+	  mutate(standard = exp(lc$a - lc$b * 19.81),
+	    jumpof   = exp(a89  + lc$b * k89),
+	    low      = exp(a89  + lc$b * (k89 - z * se)),
+	    hi       = exp(a89  + lc$b * (k89 + z * se)))
+	ggplot(y2013, aes(age, mx)) + scale_y_log10() +
+	  geom_ribbon(aes(ymin = low, ymax = hi), fill = "#d0d0d0") +
+	  geom_point() + geom_line(aes(age, standard)) + geom_line(aes(age, jumpof)) +
+	  ggtitle("Observed and Forecast for 2013")
+	ggsave("lcfig5r.png", width = 500/72, height = 400/72, dpi = 72)
+```
+
+![](lcfig5r.png){.img-responsive .img-center .r} 
+
+The performance of the model with the correct jump-off for a 24-year forecast 
+is nothing short of remarkable.
+
+__Update__. Now that we have more data we can test the model further. Turns
+out the model doesn't do so well for later years, because there was an unexpected
+rise in adult mortality during the working ages starting around 2010, not to
+mention the pandemic and the subsequent increase in mortality in 2020. You may 
+wish to explore these issues using the available data.
+
+### Reference
+
+HMD. Human Mortality Database. Max Planck Institute for Demographic Research 
+(Germany), University of California, Berkeley (USA), and French Institute for 
+Demographic Studies (France). Available at <https://www.mortality.org>.

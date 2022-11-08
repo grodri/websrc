@@ -1,0 +1,218 @@
+
+## Life Table Analysis of Contraceptive Use
+
+We will illustrate the application of increment-decrement life tables to
+the analysis of contraceptive effectiveness using a classic dataset from
+Tietze (1967), Intra-Uterine Contraception: Recommended Procedures for
+Data Analysis. *Studies in Family Planning* Vol 1, No 18, Supplement, pp
+1-6.
+
+Women will enter the life table with the insertion of an IUD, which
+defines a segment of use. The segment ends with an event or
+"termination" or "continues" as of the analysis date. Some events
+(pregnancy) close the case and are called "closures", but others
+(first expulsion) terminate the segment but not necessarily the case, as
+the device may be "reinserted", in which case the woman re-enters the
+table with a new segment of use.
+
+The data come in two tables, one showing first insertions per calendar
+month, and another giving details of terminations and reinsertions. 
+<!-- Both tables are available in the datasets section of the course website as
+`TietzeInsertions.dat` and `TietzeTerminations.dat`. -->
+I did some preliminary work to put the data in a more usable form. The
+manipulations are simple but tedious.
+The end result is a file tabulating insertions, reinsertions,
+terminations, closures and continuations by ordinal month. The file is
+called `tietze.dta` and is available in the datasets section in Stata
+format. 
+
+The variables include the ordinal `month`, counts of insertions
+and reinsertions (`ins` and `reins`), terminations by accidental
+pregnancy (`ap`), first and later expulsion (`fe`,`le`), removal for
+medical or personal reasons or by investigator's choice (`rm`, `rp`,
+`ric`), and lost to follow up (`lfu`), as well as counts of closures by
+the same reasons (with names that add a `c` prefix, so `cfe` are
+closures due to first expulsions.
+
+.include srtabs
+
+We start by reading the file and listing some of the counts.
+
+```s
+	use https://grodri.github.io/datasets/tietze, clear
+	list month ins reins terms cont in 1/12, clean
+
+```
+
+```r
+	library(haven)
+	library(dplyr)
+	tietze <- read_dta("https://grodri.github.io/datasets/tietze.dta")
+	select(tietze, month, ins, reins, terms, cont) |> slice(1:12)
+```
+
+We have a total of 250 first insertions. In the first month there are 7
+reinsertions, 25 terminations of various kinds, and 18 continuing
+segments.
+
+### Woman-Months of Use
+
+The first task is to compute woman-months of exposure in each month. We
+will follow Tietze in assuming that events are uniformly distributed
+within each month of use. In the first month we have 250 segments at the
+start and 250 + 7 - 25 - 18 = 214 at the end, and exposure is simply the
+average, 232 woman-months.
+
+```s
+	gen exit = ins[1] + sum(reins - terms - cont)
+	gen enter = ins[1]
+	replace enter = exit[_n - 1] in 2/L
+	gen expo = (enter + exit)/2
+	list month enter reins terms cont exit expo in 1/12, clean
+```
+
+```r
+	last <- nrow(tietze)
+	tietze <- mutate(tietze, exit = ins[1] + cumsum(reins - terms - cont),
+	  enter = c(ins[1], exit[-last]),
+	  expo = (enter + exit)/2)
+	select(tietze, month, enter, reins, terms, cont, exit, expo) |> slice(1:12)
+```
+
+### Continuation "Rates"
+
+We will compute continuation probabilities using all "relevant"
+closures, defined as pregnancy, first and later expulsion, and removal
+for medical or personal reasons. We are used to computing rates and then
+converting to probabilities (see formula 3.2 in the textbook), but we
+can also compute the probability directly using as denominator an
+adjusted number at the start of each month obtained by adding half the
+relevant closures to the exposure.
+
+It is easy to verify that the two approaches given exactly the same
+answer. For example in the first month we have 12 relevant closures.
+Dividing by the 232 woman-months of exposure we obtain a rate of 0.0517
+which converts to a probability of 0.0504 (using formula 3.12 in the
+text: *q = 2 m/(2 + m)*). Or we can divide 12 by the adjusted
+denominator of 232 + 12/2 = 238 to obtain 0.0504 directly.
+
+Once we have the probability of discontinuation in each month we obtain
+the probability of continuation as the complement, and the cumulative
+continuation probability (unfortunately often called cumulative
+continuation "rate") as a cumulative product
+
+```s
+	gen relclos = cap + cfe + cle + crm + crp
+	gen nadj = expo + relclos/2
+	gen q = relclos/nadj
+	gen p = 1 - q
+	gen cr = exp(sum(log(p)))       
+	list month nadj relclos q p cr in 1/12, clean
+```
+
+```r
+	tietze <- mutate(tietze, relclos = cap + cfe + cle + crm + crp,
+	  nadj = expo + relclos/2,
+	  q = relclos/nadj,
+	  p = 1 - q,
+	  cr = cumprod(p))
+	select(tietze, month, nadj, relclos, q, p, cr) |> slice(1:12)
+```
+
+So the probability of continuing use after 12 months is 76.7%.
+
+### Net Rates of Events
+
+We now compute so-called "net" rates of events, which correspond to
+the multiple decrement life table and reflect the probabilities of
+experiencing various events *in the presence* of the competing risks.
+Here is the calculation for pregnancies (technically closures due to
+accidental pregnancies or `cap`).
+
+We obtain a conditional monthly probability of pregnancy dividing
+pregnancies by the adjusted denominator, and then unconditional
+probabilities multiplying by the continuation probability at the
+*beginning* of the month, which can be accumulated over duration of use.
+
+```s
+	gen qap = cap/nadj
+	gen lcr = cr[_n-1]    // lagged continuation rate
+	replace lcr = 1 in 1
+	gen cnap = sum(lcr * qap)
+	list month nadj cap qap cnap in 1/12, clean
+```
+
+```r
+	tietze <- mutate(tietze, qap = cap/nadj,
+	  lcr = c(1, cr[-last]),
+	  cnap = cumsum(lcr * qap))
+	select(tietze, month, nadj, cap, qap, cnap) |> slice(1:12)
+```
+
+The probability of accidental pregnancy in the first year of use is
+4.4%. Try computing similar probabilities for the other relevant
+closures. You should get 4.3% for first expulsions, 3.6% for later
+expulsions, 6.7% for medical reasons and 4.3% for personal reasons.
+These add up to 23.3%, which is of course the complement of the
+probability of continuing use after 12 months.
+
+These "rates" can also be computed for events other than closures
+using exactly the same procedure. Here is the probability of a first
+expulsion in the presence of the other risks:
+
+```s
+	gen qfe = fe/nadj
+	gen cnfe = sum(lcr * qfe)
+	list month nadj fe qfe cnfe in 1/12, clean
+```
+
+```r
+	tietze <- mutate(tietze, qfe = fe/nadj,   
+	  cnfe = cumsum(lcr * qfe))
+	select(tietze, month, nadj, fe, qfe, cnfe) |> slice(1:12)
+```
+
+We get a 15.7% probability of first expulsion in the first year of use.
+(Recall that first expulsions are not "fatal", as the IUD can be
+reinserted.) Try computing similar rates for later expulsions and
+removals for medical and personal reasons. You should get 6.1%, 8.3% and
+4.3% respectively. For pregnancies the answer is the same as above
+because every termination is a closure.
+
+### Gross Rates of Events
+
+We can also compute the equivalent of an associated single-decrement
+life table under the assumption of independence of risks. The results
+are often called "gross" rates. The calculation proceeds as before but
+we use a new adjusted denominator, which adds to the woman-months of
+exposure half the events of interest (as opposed to half of all relevant
+closures). Let us do the calculation for pregnancies
+
+```s
+	gen nadjap = expo + 0.5 * cap // pregnancies are only risk
+	gen gqap = cap/nadjap
+	gen gcrap = exp(sum(log(1 - gqap)))     // continuation
+	gen gdrap = 1 - gcrap                   // discontinuation
+	list month gqap gcrap gdrap in 1/12, clean
+```
+
+```r
+	tietze <- mutate(tietze, nadjap = expo + cap/2,
+	  gqap = cap/nadjap,
+	  gcrap = cumprod(1 - gqap),
+	  gdrap = 1 - gcrap)  
+	select(tietze, month, gqap, gcrap, gdrap) |> slice(1:12)
+```
+
+The probability of accidental pregnancy would be a bit higher, 5%, in
+the absence of the other risks. The calculation is based on the
+assumption of independence of risks, as the observed probabilities of
+pregnancy are applied to women who discontinued for other reasons.
+
+Note that the demographic literature uses "net" for rates in the
+presence of other risks and "gross" for rates in the absence of other
+risks. The statistical literature reverses the usage.
+
+A useful article in addition to Tietze's classic is S. R. Karia, J.
+Toivonen and E. Arjas (1998), Analysis of Contraceptive Failure Data in
+Intrauterine Device Studies, *Contraception*, 58:361-374.

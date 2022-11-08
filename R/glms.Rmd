@@ -57,13 +57,13 @@ use data excerpted below (and shown in full further below):
 ```
 The data are available from the datasets section of the website for my 
 generalized linear models course. Visit 
-<https://data.princeton.edu/wws509/datasets> to read a short description and 
+<https://grodri.github.io/glms/datasets> to read a short description and 
 follow the link to `cuse.dat`.
 
 Of course the data can be downloaded directly from within R:
 
 ```{r}
-cuse = read.table("https://data.princeton.edu/wws509/datasets/cuse.dat", header 
+cuse = read.table("https://grodri.github.io/datasets/cuse.dat", header 
 = TRUE)
 cuse
 ```

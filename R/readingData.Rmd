@@ -82,13 +82,13 @@ Venezuela          91       7       11
 This small dataset includes an index of social setting, an index of family 
 planning effort, and the percent decline in the crude birth rate between 1965 
 and 1975. The data are available at 
-<https://data.princeton.edu/wws509/datasets/> in a file called `effort.dat` 
+<https://grodri.github.io/datasets/> in a file called `effort.dat` 
 that includes a header with the variable names.
 
 R can read the data directly from the web:
   
 ```{r}
-fpe = read.table("https://data.princeton.edu/wws509/datasets/effort.dat")
+fpe = read.table("https://grodri.github.io/datasets/effort.dat")
 ```
 
 The function used to read data frames is `read.table()`. The argument is a 

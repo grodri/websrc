@@ -1,0 +1,154 @@
+
+## Population Projections
+
+This computing log illustrates the use of the cohort component method in
+population projections.
+
+### Reading the Data
+
+We will use the data from Sweden used in Box 6.1 (page 125) in the
+textbook, available as file `sweden93.dat` in the datasets section to
+save you some typing. We read the population counts, the life table, and
+the fertility rates. The last age group is 85+ and `L` for that age is
+actually time lived after age 85. We also express person-years per
+birth, dividing by *l~0~*.
+
+.include srtabs
+
+```s
+	infile age p L f using ///
+	  https://grodri.github.io/datasets/sweden93.dat, clear
+	mata
+	  p93 = st_data(., "p")
+	  L = st_data(., "L")/100000
+	  f = st_data(., "f")
+	  sum(p93)
+	end
+```
+
+```r
+	library(dplyr)
+	sw <- read.table("https://grodri.github.io/datasets/sweden93.dat", 
+	  header=FALSE)
+	names(sw) <- c("age", "p93", "L", "f")
+	sw <- mutate(sw, L = L/100000)
+	summarize(sw, sum(p93))
+```
+
+### The Leslie Matrix
+
+I have written a function to compute a Leslie matrix given two vectors
+representing person-years lived *~5~L~x~* (with the convention that the
+radix is one and the last value is *T~x~*) and the maternity rates
+*~5~m~x~*. We source and then list the code.
+
+```s
+	capture mata mata drop Leslie()
+	quietly do leslie.mata
+	type leslie.mata
+```
+
+```r
+    source("leslie.R")
+	Leslie
+```
+
+The function computes the survivorship ratios and stores them in the
+lower diagonal. For example `M[2,1] = L[2]/L[1]` is the probability of
+surviving from age 0-4 to 5-9, or *~5~L~5~/~5~L~0~* in standard
+demographic notation.
+
+The only tricky bit is the last (open) age interval, where we combine
+the last two groups and project then using `L[n]/(L[n-1] + L[n])`. In
+Sweden we combine ages 80-84 and 85+ and use *T~85~/T~80~ =
+T~85~/(~5~L~80~+T~80~)* as the survival ratio. (As noted in class, if we
+had *T~90~* we would use a slightly different procedure. The textbook
+describes that procedure on page 121, but uses the combined projection
+in Box 6.1.)
+
+The rest of the calculation computes the average fertility rate for each
+age group and then survives the resulting births to age 0-4. For example
+women 15-19 are exposed to the rates at 15-19 and 20-24, with the latter
+discounted by the probability of surviving to 20-24, so we average
+`m[4]` and `m[5]*L[5]/L[4]`.
+
+The rate would be multiplied by 5, the width of the period, and by the
+probability of surviving from birth to age 0-4, which is `L[1]/5`. The
+5's cancel, so we don't include them. (As noted in class, there are two
+ways of computing births; here we focus on the women and average the
+rates, an approach best suited for computing the Leslie matrix. The
+textbook also describes focusing on the rates and averaging the numbers
+of women exposed to each rate.)
+
+### Projections for 5 and 10 years
+
+For Sweden we have fertility rates, so we divide by 2.05 to obtain
+*maternity* rates (female births) before calling our function. Once we
+have a Leslie matrix, projection is easy
+
+```s
+	mata:
+      M = Leslie(L, f/2.05)
+	  p98 = M * p93
+	  p03 = M * p98
+	  round( (p93, p98, p03) )
+	  sum(p98), sum(p03)
+	end
+```
+
+```r
+	M <- Leslie(sw$L, sw$f/2.05)
+	sw <- mutate(sw, 
+	  p98 = M %*% p93,
+	  p03 = M %*% p98)
+	round(select(sw, age, p93, p98, p03), 0)
+	select(sw, p93, p98, p03) %>% colSums()
+```
+
+These results agree exactly with Box 6.1 (part 2) in the text.
+
+### The Stable Equivalent
+
+While we have the Leslie matrix handy, we can compute the intrinsic rate
+of growth and the stable age distribution by simply obtaining the first
+eigenvalue and eigenvector of the projection matrix.
+
+[This is easy to do in Mata, as long as we define the output vector and
+matrix before. Here I use empty matrices.]{.stata}
+
+```s
+	mata
+	  values = J(0,0,.)
+	  vectors = J(0,0,.)
+	  eigensystem(M, vectors, values)
+	  values[1]
+      log(values[1])/5
+      stable = Re(vectors[,1]/sum(vectors[,1]))
+	  stable
+	end
+```
+
+```r
+	e <- eigen(M)
+	e$values[1]
+	log(e$values[1])/5
+	arv <- abs(Re(e$vectors[,1]))
+	stable <- arv/sum(arv)
+	stable
+```
+
+The first eigenvalue is 1.0011, so if the 1993 fertility and mortality
+rates were to stay constant the population would eventually grow 0.11
+percent every 5 years, or 0.022 percent per year. The first eigenvector,
+divided by its sum, gives us the proportionate age distribution. In
+general the eigen values and eigen vectors can be complex numbers, and
+both Stata and R store them as such, although for a Leslie matrix they
+are always real. The function `Re()` takes the real part of a complex
+number.
+
+We return to stable populations in a separate handout, but there is a
+lot you could do with the Swedish data. For one thing you might try
+projecting the population for 100 years of so (20 periods) to verify
+that it becomes stable. You may also try plotting the current and stable
+equivalent age distributions to see what that says about population
+momentum.

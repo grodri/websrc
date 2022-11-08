@@ -15,11 +15,11 @@ First we read the data from the course website
 
 ```s
 	infile hosp loginc distance dropout college mother ///
-		using https://data.princeton.edu/pop510/hospital.dat, clear
+		using https://grodri.github.io/datasets/hospital.dat, clear
 ```
 
 ```r
-	hosp <- read.table("https://data.princeton.edu/pop510/hospital.dat", 
+	hosp <- read.table("https://grodri.github.io/datasets/hospital.dat", 
 	  header = FALSE)
 	names(hosp) <- c("hosp","loginc","distance","dropout","college","mother")
 ```
@@ -139,7 +139,7 @@ below.]{.r}
 	X <- model.matrix(agq)
 	xb <- X %*% fixef(agq)
 	md <- median(xb)
-	source("https://data.princeton.edu/pop510/gauher.R")
+	source("https://grodri.github.io/multilevel/gauher.R")
 	ghi <- function(f, gq = gauher(12)) {
 		sum(f(gq$z) * gq$w)
 	}    
@@ -222,11 +222,11 @@ subject-specific odds ratio of 2.81.
 You will find on this website analyses of the same data using three
 Bayesian methods:
 
--   Gibbs sampling with [winBUGS](hospBUGS), and [Jags](hospJags)
+-   Gibbs sampling with [winBUGS](hospbugs), and [Jags](hospjags)
 
--   Hamiltonian MCMC using [Stan](hospStan), and
+-   Hamiltonian MCMC using [Stan](hospstan), and
 
--   Metropolis-Hastings + Gibbs using Stata's [bayesmh](hospBayesmh).
+-   Metropolis-Hastings + Gibbs using Stata's [bayesmh](hospbayesmh).
 
 The last entry includes a comparison of estimates with all four methods.
 

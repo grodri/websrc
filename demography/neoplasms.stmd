@@ -1,0 +1,311 @@
+
+## Competing Risks
+
+Let us work through the example in the textbook on multiple decrement
+and associated single decrement life tables, see Boxes 4.1 and 4.2 on
+pages 77 and 85.
+
+Rather than just repeat all the calculations, however, I will illustrate
+a simpler approach to cause-deleted tables, based on the assumption that
+cause-specific hazards are constant within each age interval. This
+approach gives almost the same results as the textbook, yet allows us to
+concentrate on the underlying concepts.
+
+We start by reading the data, which have deaths for all causes and from
+neoplasms for U.S. females in 1991. I also include the *l~x~* and
+*~n~a~x~* columns.
+
+.include srtabs
+
+```s
+	set type double
+	infile age D Di lx a using ///
+	  https://grodri.github.io/datasets/preston41.dat, clear
+```
+
+```r
+	url = "https://grodri.github.io/datasets/preston41.dat"
+	b41 <- read.table(url, header=FALSE)
+	names(b41) <- c("age","D","Di","lx","a")
+```
+
+### Multiple Decrements
+
+The first task is to estimate mortality due to neoplasms in the presence
+of other causes. We start by estimating overall survival using
+conventional life table techniques. Then we compute conditional
+probabilities of death. (These usually would have been computed on the
+way to *l~x~*.)
+
+[Many calculations need special handling for the first or last entry. I
+take advantage that these are set to NA and encapsulate the fix in a
+function `edit.na()`]{.r}
+
+```s
+	gen q = 1 - lx[_n + 1]/lx
+	replace q = 1 in -1
+```
+
+```r
+	library(dplyr)
+	edit.na <- function(x, value) { x[is.na(x)] <- value; x}
+	b41 <- mutate(b41, 
+	  q = edit.na(1 - lead(lx)/lx, 1)) # so q[last]=1
+```
+
+The *conditional* probability of dying of a given cause given survival
+to the age group is easy to obtain, we just multiply the overall
+probability by the ratio of deaths of a given cause to all deaths:
+
+```s
+	gen qi = q * Di/D
+```
+
+```r
+	b41 <- mutate(b41, qi = q * Di/D)
+```
+
+The unconditional counts of deaths of any cause and of a given cause are
+calculated multiplying by the number surviving to the start of each age
+group, which is *l~x~*. Recall that to die of cause *i* in the interval
+*\[x, x+n)* one must survive *all* causes up to age *x*.
+
+```s
+	gen d = lx * q
+	gen di = lx * qi
+```
+
+```r
+	b41 <- mutate(b41, d = lx * q, di = lx * qi)
+```
+
+Let us print our results
+
+```s
+	format %8.5f q qi
+	format %8.0fc lx d di
+	list age lx q qi d di
+	quietly sum(di)
+	di r(sum)
+```
+
+```r
+	select(b41, lx, q, qi, d, di) # rounding!
+```
+
+We obtain a total of 21,205 life table deaths due to neoplasms. Thus,
+the probability that a female will die of this cause under the
+age-cause-specific rates prevailing in the U.S. in 1991 is 21.2%. Can
+you compute the probability that a woman who survives to age 50 will die
+of neoplasms?
+
+In preparation for the next part, note that if we had ~n~m~x~ and we
+were willing to assume that the hazard is constant in each age group we
+would have had a slightly different estimate of the survival function.
+Let us "back out" the rates from the probabilities:
+
+```s
+	gen n = age[_n + 1] - age
+	gen m = q/(n - q * (n - a))
+	replace m = 1/a in -1
+```
+
+```r
+	b41 <- mutate(b41, n = c(diff(age),NA), 
+	  m =  edit.na( q/(n - q * (n - a)), 1/tail(a,1))) # m[last] = 1/a[last]
+```
+
+With these rates we compute the cumulative hazard and survival as
+
+```s
+	gen H = sum(n * m)
+	gen S = 1
+	replace S = exp(-H[_n - 1]) in 2/-1
+```
+
+```r
+	b41 <- mutate(b41, H = cumsum(n * m), 
+	  S = edit.na(exp(-lag(H)), 1)) # S[1] = 1
+```
+
+The result differs from the survival function in the text by less than
+0.1% in all age groups except the last two, where the difference is 0.2
+and 0.6% respectively. I think this is a small price to pay for simplicity.
+
+### Cause-Deleted Life Tables (I)
+
+The next question is how female mortality would look if deaths due to
+neoplasms could be avoided. The honest answer, of course, is that we
+don't know. But assuming independence of the underlying risks we can do
+some calculations.
+
+Let me start with the simpler approach assuming constant risks in each
+age group. We compute cause-specific rates by dividing deaths of a given
+cause into person-years of exposure, which is equivalent to multiplying
+the overall rate by the ratio of deaths of a given cause to the total.
+Here we want deaths for causes other than neoplasms. I will use the
+subscript *d* for deleted:
+
+```s
+	gen Rd = (D - Di)/D
+	gen md = m * Rd
+```
+
+```r
+	b41 <- mutate(b41, Rd = (D - Di)/D,
+	  md = m * Rd)
+```
+
+Then we construct a survival function in the usual way, but treating this
+hazard as if it was the only one operating:
+
+```s
+	gen Hd = sum(n * md)
+	gen Sd = 1
+	replace Sd = exp(-Hd[_n-1]) in 2/-1
+```
+
+```r
+	b41 <- mutate(b41, Hd = cumsum(n * md), 
+	  Sd = edit.na(exp(-lag(Hd)), 1)) # Sd[1] = 1
+```
+
+That's it. Really. We take a hazard that represents a subset of causes
+and build a life table from it. If the hazard is constant within each
+age group we can also compute person-years lived at each age quite easily
+
+```s
+	gen Pd = (Sd-Sd[_n+1])/md
+	replace Pd = Sd/md in -1
+	quietly sum Pd
+	di r(sum)
+```
+
+```r
+	b41 <- mutate(b41, 
+	  Pd =  edit.na((Sd - lead(Sd))/md, tail(Sd/md, 1)))
+	sum(b41$Pd)
+```
+
+So if neoplasm deaths could be avoided, female life expectancy at birth
+would be 82.4 years, under the strong (and untestable) assumption of
+independence of the competing causes.
+
+You might be interested to see the shape of the overall, cause-specific,
+and cause-deleted hazards:
+
+```s
+	gen agem = age + n/2
+	gen mi = m - md // rate for neoplasms
+	line m md mi agem, xtitle(age) yscale(log) ///
+	  lp(solid dash solid) ///
+	  title("Hazards for U.S. Females 1991") ///
+	  legend(order(1 "All Causes" 2 "No Neoplasms" 3 "Neoplasms") ///
+	  ring(0) pos(5) cols(1))
+	graph export usf91neo.png, width(500) replace
+```
+
+![](usf91neo.png){.stata .img-responsive .img-center}
+
+```r
+	bx <- mutate(b41, agem = age + n/2, mi = m - md)[-nrow(b41), ]
+	library(ggplot2)
+	ggplot(bx, aes(agem, m)) + geom_line() + scale_y_log10() +
+	  geom_line(aes(agem, md), linetype="dashed") + 
+	  geom_line(aes(agem, mi)) + ggtitle("Hazards for U.S. Females 1991")
+	ggsave("usf91neor.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](usf91neor.png){.r .img-responsive .img-center}
+
+### Cause-Deleted Life Tables (II)
+
+Let us review the alternative approach used in the textbook. The authors
+use Chiang's method, which assumes proportionality of cause-specific
+hazards within an age group (weaker than the constant risk assumption).
+We compute the conditional probability of surviving an age group after
+deleting a cause as the overall probability raised to *R~d~*, and then
+calculate the survival function as a cumulative product
+
+```s
+	gen pd = (1 - q)^Rd
+	gen ld = 100000
+	replace ld = ld[_n-1] * pd[_n-1] in 2/-1
+```
+
+```r
+	b41 <- mutate(b41, pd = (1 - q)^Rd,
+	  ld = 100000 * cumprod(c(1, pd[-length(pd)])))
+```
+
+The cause-deleted survival functions computed by the two methods differ
+by less than 0.1% at all ages except the last two, where the differences
+are 0.2% and 0.5%, respectively.
+
+To compute time lived we need the *~n~a~x~* factors. The text uses the
+Taylor series method for ages 0, 1, 5, and 80, and a quadratic
+interpolation formula from 10 to 75. Let's do that:
+
+```s
+	gen dd = ld - ld[_n+1] // deaths after cause-deletion
+	replace dd = ld in -1
+	gen qd = dd/ld
+	gen ad = a/Rd in -1
+	// Equation 4.8:
+	replace ad = n + Rd * (q/qd) * (a - n) /// 
+	  if age < 10 | age==80   
+	// Equation 4.6:
+	replace ad =( (-5/24) * dd[_n - 1] + 2.5*dd + (5/24) * dd[_n + 1] )/dd ///
+	  if age >= 10 & age <= 75
+```
+
+```r
+	b41 <- mutate(b41, 
+	  dd = edit.na(ld - lead(ld), tail(ld,1)),
+	  qd = dd/ld,
+	  ad = ifelse(age < 10 | age == 80, 
+	    n + Rd * (q/qd) * (a - n), 
+	      ifelse(age >= 10 & age <= 75, 
+	      ((-5/24) * lag(dd) + 2.5 * dd + (5/24) * lead(dd) )/dd, 
+	      a/Rd)))
+```
+
+We can then compute time lived and life expectancy:
+
+```s
+	gen Ld = dd * ad + (ld - dd) * n
+	replace Ld = ld * ad in -1
+	quietly summarize Ld
+	di r(sum)/100000
+```
+
+```r
+	b41 <- mutate(b41, 
+	  Ld = edit.na(dd * ad + (ld - dd) * n,  tail(ld * ad, 1))) 
+	summarize(b41, e0 = sum(Ld)/100000)
+```
+
+We get 82.46 years, in agreement with the text, and very close to the
+82.39 computed using the simpler approach.
+
+We now compute life expectancy at every age and print the "official"
+cause-deleted life table.
+
+```s
+	gen Td = r(sum) - sum(Ld) + Ld
+	gen ed = Td/ld
+	format %8.6f Rd
+	format %5.3f a ad
+	format %5.2f ed
+	format %8.0fc lx ld
+	list age Rd lx a ld ad ed
+```
+
+```r
+	b41 <- mutate(b41, Td = sum(Ld) - cumsum(Ld) + Ld, ed = Td/ld)
+	select(b41, Rd, lx, a, ld, ad, ed)
+```
+
+How much would a woman's life expectancy at 40 change if neoplasm
+deaths were eliminated, assuming again independence of the underlying
+risks?

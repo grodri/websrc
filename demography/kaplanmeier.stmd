@@ -1,0 +1,84 @@
+
+## Kaplan-Meir Survival {#kaplanmeir .first}
+
+We'll illustrate the Kaplan-Meier estimator with the classic dataset
+used by Cox in his seminal paper on proportional hazard models. The data
+shows the length of remission in weeks for two groups of leukemia
+patients, treated and controls.
+
+We start by reading the data, available in the datasets section as a 
+plain text file `gehan.dat` and a Stata file `gehan.dta`.
+
+.include srtabs
+
+```s
+	use    https://grodri.github.io/datasets/gehan, clear    
+	stset weeks, failure(relapse) // define as survival data
+```
+
+```r
+	library(survival)
+	library(dplyr)
+	library(ggplot2)
+	gehan <- read.table("https://grodri.github.io/datasets/gehan.dat")
+	summarize(gehan, events = sum(relapse), exposure = sum(weeks))
+```
+
+As you can see, 30 of the 42 patients had a relapse, with a total
+exposure time of 541 weeks. The weekly relapse rate is 7.8%.
+
+Next we compute and plot the Kaplan-Meir estimator of the survival
+function in each of the two groups.
+
+```s
+	sts graph, by(group)
+	graph export kmg.png, width(500) replace
+```
+
+![](kmg.png){.stata}
+
+```r
+	kmg <- survfit(Surv(weeks, relapse) ~ group, data=gehan)
+	#plot(kmg)
+	a = 1:kmg$strata[1]
+	kmdf <- data.frame(group = rep(c("control", "treated"), kmg$strata+1),
+	  time = c(0, kmg$time[a], 0, kmg$time[-a]),
+	  surv = c(1, kmg$surv[a], 1, kmg$surv[-a])) %>% group_by(group)
+	ggplot(kmdf, aes(time, surv, color=group)) + geom_step()
+	ggsave("kmgr.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](kmgr.png){.r}
+
+The graph shows that after 23 weeks all patients in the control group
+had relapsed, but about half those in the treated group remained in
+remission. We can list the survival function.
+
+```s
+	sts list, by(group)
+```
+
+```r
+	summary(kmg)
+```
+
+The convention is to report the survival function immediately after each
+time. In the control group there are no censored observations, and the
+Kaplan-Meier estimate is simply the proportion alive after each distinct
+failure time. You can also check that the standard error is the usual
+binomial estimate. For example just after 8 weeks there are 8 out of 21
+alive, the proportion is 8/21 = 0.381 and the standard error is
+v0.381(1 - 0.381)/21) = 0.106.
+
+In the treated group 12 cases are censored and 9 relapse. Can you
+compute the estimate by hand? The distinct times of death are 6, 7, 10,
+13, 16, 22 and 23. The counts of relapses are 3, 1, 1, 1, 1, 1, 1. When
+there are ties between event and censoring times it is customary to
+assume that the event occurred first; that is, observations censored at
+*t* are assumed to be exposed at that time, effectively censored just
+after *t*. The counts of censored observations after each death time
+(but before the next) are 1, 1, 2, 0, 3, 0 and 5. When the last
+observation is censored the K-M estimate is greater than zero, and is
+usually considered undefined after that.
+
+

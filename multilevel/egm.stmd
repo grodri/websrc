@@ -28,14 +28,14 @@ level. [We specify these going *down* the hierarchy.]{.stata} We also
 specify maximum likelihood estimation. [(The R default is REML).]{.r}
 
 ```s
-	use https://data.princeton.edu/pop510/egm, clear
+	use https://grodri.github.io/datasets/egm, clear
 	mixed math || schoolid: || childid:  , mle
 ```
 
 ```r
 	library(haven)
 	library(lme4)
-	egm <- read_dta("https://data.princeton.edu/pop510/egm.dta")	
+	egm <- read_dta("https://grodri.github.io/datasets/egm.dta")	
 	vc <- lmer(math ~ 1 + (1|childid) + (1 | schoolid), data=egm, REML=FALSE)
 	summary(vc, corr = FALSE)
 ```
@@ -273,8 +273,7 @@ meaningful because it identifies the reference category. One might
 consider centering the percent poor, but for consistency with the HLM
 manual I will not. Bear in mind that the main effects then refer to
 
-The equations for this model [are
-here](https://data.princeton.edu/pop510/egmequations#growth-curve-predictors).
+The equations for this model [are here](egmequations).
 
 ```s
 	gen yearBlack = year * black

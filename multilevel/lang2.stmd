@@ -8,12 +8,12 @@ data.
 .include srtabs
 
 ```s
-	use https://data.princeton.edu/pop510/snijders, clear
+	use https://grodri.github.io/datasets/snijders, clear
 ```
 
 ```r
 	library(haven)
-	snijders <- read_dta("https://data.princeton.edu/pop510/snijders.dta")
+	snijders <- read_dta("https://grodri.github.io/datasets/snijders.dta")
 ```
 
 To simplify interpretation we will center verbal IQ on the overall mean.

@@ -26,7 +26,7 @@ The example below uses an extract from the 1975 Dominican
 Republic Fertility Survey and tabulates the distribution of
 respondent's education
 
-	use https://data.princeton.edu/stata/drsr03x, clear
+	use https://grodri.github.io/datasets/drsr03x, clear
 	table educg, statistic(frequency) statistic(percent)
 
 If you just type `table educg` you will see the frequencies, which 
@@ -387,7 +387,7 @@ modify the header, and remove a vertical border. Try the following
 commands (you may want to try the first two without `quietly` to see 
 what happens at each step):
 
-	use https://data.princeton.edu/stata/drsr03x, clear
+	use https://grodri.github.io/datasets/drsr03x, clear
 	quietly table educg cuse, stat(percent, across(cuse)) stat(frequency)
 	quietly collect layout (educg) ///
 	    (cuse#result[percent]  cuse[.m]#result[frequency])

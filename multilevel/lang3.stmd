@@ -8,7 +8,7 @@ data one last time.
 .include srtabs
 
 ```s
-	use https://data.princeton.edu/pop510/snijders, clear
+	use https://grodri.github.io/datasets/snijders, clear
 	quietly sum iq_verb
 	gen iqvc = iq_verb - r(mean)
 ```
@@ -16,7 +16,7 @@ data one last time.
 ```r
 	library(haven)
 	library(dplyr)
-	snijders <- read_dta("https://data.princeton.edu/pop510/snijders.dta") |>
+	snijders <- read_dta("https://grodri.github.io/datasets/snijders.dta") |>
 	  mutate(iqvc = iq_verb - mean(iq_verb))
 ```
 

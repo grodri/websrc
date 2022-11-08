@@ -7,7 +7,7 @@ illustrate this approach with an analysis of infant and child mortality
 in Kenya using DHS data, with an abridged version in my encyclopedia
 article (Rodríguez, 2015) and full details in my chapter in the
 *Handbook of Multilevel Analysis* (Rodríguez, 2008). You'll find the
-references with abstracts [here](https://data.princeton.edu/multilevel).
+references with abstracts [here](/research).
 
 I fill focus now on the calculation of predicted probabilities after
 fitting the model. I start by storing the estimates of the fixed effects
@@ -176,7 +176,7 @@ end
 ```
 
 ```r
-	source("https://data.princeton.edu/pop510/gauher.R")
+	source("https://grodri.github.io/multilevel/gauher.R")
 	ghi2 <- function(f, gq = gauher(12)) {
 	  n <- nrow(gq)
 	  r <- 0

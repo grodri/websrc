@@ -1,0 +1,203 @@
+
+## Digit Preference
+
+The datasets section has the age distribution of the Philippines in 1990
+from ages 0 to 99, which appears as table 7.7 in Siegel and Swanson
+(2004), p. 103. (Thanks to Tom Pullum for providing an electronic
+version as well as a do file to analyze it.) We'll calculate some
+measures of digit preference using Stata and R.
+
+.include srtabs
+
+We first read the data and plot the age distribution in single years of
+age.
+
+```s
+	infile age pop using /// 
+		https://grodri.github.io/datasets/phpop1990.dat, clear
+	gen pm = pop/1000000
+	line pm age, ytitle("Population (millions)") ///
+	  title(Philippines 1990)
+	graph export phpop1990.png, replace width(500)
+```
+
+![](phpop1990.png){.stata .img-responsive .img-center}
+
+```r
+	library(dplyr)
+	library(ggplot2)
+	ph <- read.table("https://grodri.github.io/datasets/phpop1990.dat",
+	  header = FALSE, col.names = c("age", "pop")) |>
+	  mutate(pm = pop/1000000)
+	ggplot(ph, aes(age, pm)) + geom_line()
+	ggsave("phpop1990r.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](phpop1990r.png){.r .img-responsive .img-center}
+
+The spikes are likely to represent some form of age misreporting. To
+investigate a preference for terminal digits such as 0 or 5 we could
+tabulate the last digit of age:
+
+```s
+	gen lastdigit = mod(age,10)
+	tab lastdigit [fw=pop]
+```
+
+```r
+	ph <- mutate(ph, last.digit = age %% 10)
+	total <- sum(ph$pop)
+	ph |>  group_by(last.digit) |>
+	  summarize(freq = sum(pop), percent = 100*freq/total)
+```
+
+We see a strong preference for 0, and some for 1, 2 and 5. Note,
+however, that because of mortality we should expect more people at age 0
+than 5 or 9, and more at 10 than 15 or 19, and so forth, with more at 80
+than 85 or 89.
+
+Myers' adjustment is to tabulate the last digit several times starting
+at different values. In our example we could tabulate it only for ages 0
+to 89, and then 1 to 90, until we do 9 to 98, and sum the tabulations,
+obtaining a "blended" population which helps control for the trend.
+
+This is equivalent to counting all ages 10 times, except ages 0 to 8
+(which are counted 1 to 9 times, respectively) and 90 to 98 (which are
+counted 9 to 1 times, respectively). So we can obtain the result more
+easily using a weight:
+
+```s
+	gen mw = 10
+	replace mw = age+1 if age < 9
+	replace mw = 99-age if age > 89
+	replace mw = 0 if age > 98 
+	gen combow = pop*mw
+	tab lastdigit [fw=combow], matcell(blended)
+```
+
+```r
+	phb <- mutate(ph, mw = ifelse(age < 9, age+1, ifelse(age > 89, 99-age, 10)))
+	totalb <- sum(phb$pop * phb$mw) 
+	blended <- phb |> group_by(last.digit) |>
+	  summarize(freq = sum(pop*mw), pct = 100*freq/totalb)
+```
+
+Now that we have the counts we need to divide by the sum and see how far
+we are from 10% in each digit. [This is best done with Mata ]{.stata}
+
+```m
+	b = st_matrix("blended")
+	f = 100 * b :/ sum(b)
+	sum( abs(f :- 10) )/2
+```
+
+```r
+	sum(abs(blended$pct - 10))/2
+```
+
+So we would need to reclasify almost 2 percent of the cases. The blended
+frequencies show some preference for 0, but no marked preference for 5.
+
+::: stata
+### A Stata Command
+
+I have wrapped these calculations in a Stata command called `myers`. To
+install it in net-aware Stata type
+`net from https://grodri.github.io/demography`, and follow the
+instructions. The command has online help, which you should consult to
+learn about the options, which include `range(bot top)`, to specify the
+(initial) range of ages to be tabulated, and `months`, for studying
+heaping in duration data. To reproduce the results above try
+`myers age[fw=pop], range(0 89)`. The command stores the index in `r(myers)`.
+:::
+
+::: r
+### An R Function
+
+I have wrapped these calculations in an R function called `myers()`. 
+You can get the source code using
+`source("https://grodri.github.io/demography/myers.R")` The function
+signature is `myers(data, age, weight, limits=NULL, months=FALSE)`. (The
+argument `months` is used to study heaping in duration data.) To
+reproduce the results above try `myers(ph, age, pop, c(0, 89))` I also
+provide a `print()` method that displays the estimate, a `summary()`
+method that prints the table of blended frequencies, and a `plot()`
+method that displays the deviations.
+:::
+
+The data analyzed above are used as an example in Siegel and Swanson
+(2004). They state that they cover the range 10-89, but in fact they
+continue the sum all the way to 99 (excluding 100, which is left out of
+our dataset). This is equivalent to assuming that the frequencies above
+99 are all zero. We can reproduce their results exactly using
+[`myers age [fw=pop], range(10 99)`]{.stata}[`myers(ph, age, pop, c(10, 99))` ]{.r}.
+
+## Bangladesh
+
+Here are reported durations of breastfeeding in the last closed interval
+(the interval between the next-to-last and last child) from the
+Bangladesh WFS:
+
+```s
+	infile duration n using ///
+	  https://grodri.github.io/datasets/bdblci.dat, clear
+	twoway (line n duration) , title(Bangladesh 1975-76) ///
+	  xtitle("duration of breastfeeding (LCI)") ///
+	  xlabel( 0(12)72 ) xmtick(6(12)66) legend(off)
+	graph export bdblci.png, width(500) replace
+```
+
+![](bdblci.png){.img-responsive .img-center .stata}
+
+```r
+	bd <- read.table("https://grodri.github.io/datasets/bdblci.dat",
+	  header = FALSE, col.names = c("duration", "n"))
+	ggplot(bd, aes(duration, n)) + geom_line()
+	ggsave("bdblcir.png", width=500/72, height=400/72, dpi=72)
+```
+
+![](bdblcir.png){.img-responsive .img-center .r} 
+
+It seems quite clear that there is a marked preference for multiples of a
+year as well as multiples of 6 months. It is possible, of course, that
+women will aim to wean the child at age one, two, or three. Later on we
+will see from current status evidence that this is not likely to be the
+case.
+
+We can calculate Myers' index, using the months option, and specifying
+a range of 0 to 59, which spans 60 months, an exact multiple of 12, and
+leaves (at least) 11 more months of data for blending.
+
+```s
+	myers duration [fw=n], range(0,59) months
+```
+
+```r
+	source("https://grodri.github.io/demography/myers.R")
+	m <- myers(bd, duration, n, c(0, 59), TRUE)
+	summary(m)
+```
+
+So, 63% of the cases report an exact multiple of 12 and another 25%
+report a multiple of 6 (but not 12). We would need to reclassify 71% of
+the cases to obtain a uniform distribution by month.
+
+This dataset does not exhibit a marked trend through the range the way
+an age distribution may do, so you would expect very similar results by
+just dividing duration by 12 and tabulating the remainder. We just need
+to make sure we give each month an equal chance by going up to 59 or 71
+months. Try
+
+```s
+	gen dmod12 = mod(dur,12)
+	tab dmod12 [fw=n] if dur < 60 // or < 72
+```
+
+```r
+	filter(bd, duration < 60) |> 
+	  group_by(remainder = duration %% 12) |> 
+	  summarize(freq = sum(n)) |>
+	  mutate(pct = round(100*freq/sum(freq),2) )
+```
+
+The relative frequencies are very similar to the blended ones.

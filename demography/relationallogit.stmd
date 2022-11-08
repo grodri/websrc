@@ -1,0 +1,109 @@
+
+## Relational Logit Models
+
+We illustrate fitting Brass's relational logit model using data from
+the Seychelles.
+
+### Seychelles Males, 1971-75
+
+Here's a small dataset with the observed survival function for
+Seychelles males in 1971-75. We also include Brass's standard for
+convenience. (Alternatively, the Brass standard is available in five and
+single-year forms in Stata files in the datasets section, so you can
+merge on age; the files are called `Brassrlm1.dta` and `Brassrlm5.dta`.)
+
+.include srtabs
+
+```s
+	infile age lx ls using ///
+	  https://grodri.github.io/datasets/seychelles.dat, clear
+```
+
+```r
+	sc <- read.table("https://grodri.github.io/datasets/seychelles.dat",
+	  header = FALSE, col.names = c("age","lx","ls"))
+```
+
+We generate Brass logits and plot the logits of the observed and
+standard survival functions to see if the relationship is linear.
+
+```s
+	gen yx = 0.5*log( (1-lx)/lx)
+	gen ys = 0.5*log( (1-ls)/ls)
+	twoway (scatter yx ys) (lfit yx ys), name(a, replace) ///
+	  ytitle(observed) xtitle(standard) title(Logit) legend(off)
+```
+
+```r
+	library(dplyr)
+	library(ggplot2)
+	sc <- mutate(sc, yx = 0.5*log( (1-lx)/lx), ys = 0.5*log( (1-ls)/ls))
+	lf <- lm(yx ~ ys, data=sc)
+	sc$yfit <- fitted(lf)
+	g1 <- ggplot(sc, aes(x = ys, y = yx)) + geom_point() + 
+	  geom_line(aes(x = ys, y = yfit)) + ggtitle("Logit") 
+```
+
+The fit is not bad at all. Here are the parameter estimates, and the
+fitted survival, which we plot on a second panel:
+
+```s
+	reg yx ys
+	predict yf
+	gen lf = 1/(1+exp(2*yf))
+	twoway (scatter lx age) (line lf age), name(b, replace) ///
+	  ytitle(lx) title(Survival) legend(off)
+	graph combine a b, title(Brass's Relational Logit Model) ///
+	  subtitle("Seychelles, Males, 1971-75") xsize(6) ysize(3)
+	graph export seym71rlm.png, replace
+```
+
+![](seym71rlm.png){.img-responsive .img-center .stata}
+
+```r
+	library(gridExtra)
+	sc <- mutate(sc, lfit = 1/(1 + exp(2 * yfit )))
+	g2 <- ggplot(sc, aes(x = age, y = lx)) + geom_point() + 
+	  geom_line(aes(x = age, y = lfit)) + ggtitle("Survival")
+	g <- arrangeGrob(g1, g2, ncol=2)
+	ggsave("seym71rlmr.png", plot=g, width=10, height=5, dpi=72)
+```
+
+![](seym71rlmr.png){.img-responsive .img-center .r} 
+
+The parameter estimates could be used, for example, to
+generate a single-year life table
+
+```s
+	drop _all
+	use https://grodri.github.io/datasets/brassrlm1
+	predict yf
+	gen lf = 1/(1+exp(2*yf))
+	list age lf in 1/5
+```
+
+```r
+	library(haven)  
+	rlm1 <- read_dta("https://grodri.github.io/datasets/brassrlm1.dta")
+	yfit1 <- predict(lf, newdata=rlm1)
+	cbind(1:5, 1/(1 + exp(2 * yfit1[1:5])))  
+```
+
+The relational logit model doesn't always fit well. Typically, lack of
+fit is noticed at the young and old ages. Zaba(1979) proposed a
+4-parameter extension that incorporates two patterns of deviations from
+the standard and improves the R-squared to 0.9997. Ewbank, De Leon and
+Stoto (1983) proposed an alternative extension that uses different power
+transformations at young and old ages, converging to the logit as the
+powers approach 0. They also proposed a small revision of the standard
+below age 15. Both extensions are non-linear in the additional
+parameters and thus hard to fit, although the authors provide ingenious
+approximate estimation procedures. More recently Murray et al (2003)
+proposed a modified system that starts from the logit transformation
+but adds two sets of age-specific coefficients which adjust for under-five 
+and adult survivorship.
+
+For further discussion of model life tables, including the Princeton
+regional series of Coale, Demeny and Vaughan (1983) and the
+log-quadratic system of Wilmoth et al. (2012), see 
+[Tools for Demographic Estimation](http://demographicestimation.iussp.org/content/introduction-model-life-tables).

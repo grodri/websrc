@@ -1,0 +1,223 @@
+
+## The Third Child in Colombia {#cobint .first}
+
+We will look at the interval from second to third birth using Colombian
+WFS data, circa 1976. We start from an extract that has the dates of
+R's birth, date of interview, the birth history, date of first union if
+any, and current and childhood type of place of residence.
+
+```s
+	use https://grodri.github.io/datasets/cofertx, clear
+```
+
+#### Time at Risk and Event Indicator
+
+We will use intervals that start in the ten years before the interview
+and exclude twins. (The results are a bit different from my paper with
+Hobcraft, which used all birth intervals, but I can reproduce the
+earlier results by removing the period restriction.)
+
+```s
+	keep if b022 >= v007-120 & b022 < v007
+	drop if b032==b022      // only 6
+```
+
+We construct time at risk starting in the middle of the month of birth
+of the second child and ending in the middle of the month when the third
+child is born or at the end of the month before the interview, whichever
+occurs first
+
+```s
+	gen expo = b032 - b022
+	replace expo = v007 - b022 -0.5 if v007 <= b032
+	gen third = b032 < v007
+```
+
+If we `stset` the data we can take advantage of Stata's survival
+analysis facilities. For example it is very easy to plot a Kaplan-Meier 
+estimate of survival at parity 2:
+
+```s
+	gen id=_n
+	stset expo, fail(third) id(id)
+	sts graph
+	graph export co3rdkm.png, replace
+```
+
+![](co3rdkm.png){.img-responsive .center-block .stata}
+
+#### Segments of Exposure
+
+We will take advantage of Stata's facilities to split the exposure into
+3 month segments. The cutpoints have the form 0 3.5 6.5 9.5 ... 57.5
+60.5 120.
+
+```s
+	stsplit segment, at(0 3.5(3)60.5 120)
+```
+
+Stata's built-in variables `_t` and `_t0` have the start and end of
+each segment and `_d` has the death indicator. We use these to
+compute events and exposure. This is not a bad time to save the data.
+
+```s
+	replace expo = _t-_t0
+	gen births = _d
+	save temp,replace
+```
+
+We then collapse to obtain total events and exposure by duration
+(segment) and childhood place of residence.
+
+```s
+	drop if v703 > 3 // a few missing values
+	collapse (sum) births (sum) expo , by(segment v703)
+```
+
+At this point we can easily calculate life tables.
+
+#### The Birth Function
+
+I will compute the hazard dividing births by exposure and then use the
+constant hazard assumption to estimate the cumulative hazard and
+survival (or rather its complement, the birth function). You can get
+very similar results assuming that events occur half-way through each
+three-month interval. (Even more similar if we had used single months.)
+
+```s
+	gen h = births/expo
+	bysort v703 (segment): gen H = 3*sum(h)
+	gen B = 1-exp(-H)       // the birth function
+	separate B, by(v703)
+	line B1 B2 B3 segment, lpat(solid longdash dash) ///
+	  title("The Third Child in Colombia, 1976") ///
+	  subtitle(Birth Functions by Childhood Residence) ///
+	  ytitle(Proportion having a 3rd birth) /// 
+	  xlabel(12 24 36 48 60) xtitle(months since 2nd birth) ///
+	  legend(order(1 "Rural" 2 "Town" 3 "City") ///
+	  col(1) ring(0) pos(5))
+	graph export co3rdbirth.png, replace
+```
+
+![](co3rdbirth.png){.img-responsive .center-block .stata}
+
+We see that the proportions moving to parity three are higher for women
+of rural origins than for others at every duration. Women who grew up in
+towns are a bit less likely to have a third child, and when they do they
+have it later. Women who grew up in cities are much less likely to have
+a third child in the long run, but they are also more likely than
+townfolk to have very short intervals, with a cross-over around 18
+months.
+
+#### Quintums and Trimeans
+
+To compute quintums we need to interpolate in the category 57.5-60.5.
+Linear interpolation would probably do, but with constant hazard a more
+exact calculation based on S(60) = S(57.5) exp{-2.5 h(57.5)} gives Q =
+1-(1-B(57.5))exp{-2.5 h(57.5)}. Note that the way we calculated things,
+the survival and birth functions pertain to the *end* of each segment,
+which is why the code below looks at 54.5
+
+```s
+	gen Q =1-(1-B[_n]) * exp(-2.5*h[_n+1]) if  segment==54.5
+	list v703 segment h B Q if segment > 54 & v703 < 9, sep(3)
+```
+
+So the quintums are 82.3, 79.3 and 67.7 for women who grew up in rural
+areas, towns and cities. (These are a bit lower than in my paper with
+Hobcraft, reflecting the fact that they pertain to more recent births.)
+
+To obtain the trimean we use a similar interpolation strategy for
+computing the quartiles and then apply Tukey's formula. I will
+illustrate with rural women. A quarter of the quintum of .823 is .206,
+so we need the durations by which 20.6, 41.2 and 61.7% of the women have
+moved to parity 3. For the first value we need to interpolate in
+category 9.5-12.5. Write 1 - 0.206 = (1-B(9.5)) exp{-2.5 h(9.5)(Q1-9.5)}
+and solve for Q1 to obtain Q1 = 9.5 -log((1-0.206)/(1-B(9.5)))/h(9.5).
+Because the calculations are repetitive I encapsulate them in a little
+program which takes as argument a category of v703, finds the row where
+we need to interpolate, and applies the above formula:
+
+```s
+	capture program drop trimean
+	program define trimean
+	  args ctpr
+	  quietly sum Q if v703==`ctpr'
+	  local q = r(mean)/4
+	  local T = 0
+	  tempvar i
+	  gen `i' = _n
+	  forvalues k=1/3 {
+	    local b = `k'*`q'
+	    quietly sum `i' if v703==`ctpr' & B < `b'
+	    local n = r(max)
+	    local Q = seg[`n']-log((1-`b')/(1-B[`n']))/h[`n'+1]
+	    display "Q`k' = `Q'"
+	    local T = `T' + `Q'
+	    if (`k' == 2) local T = `T' + `Q'
+	  }
+	  local T = `T'/4
+	  display "Trimean: `T'"
+	end
+```
+
+We now run the computations for the three categories
+
+```s
+	trimean 1
+	trimean 2
+	trimean 3
+```
+
+So the average birth intervals for those who go on to have a third child
+are 19.6, 22.1 and 20.2 months, respectively, for women who grew up in
+rural areas, towns and cities. (The intermediate value for the last
+group was also observed in the analysis using all intervals.)
+
+#### The Hazard Functions
+
+The fact that the hazard functions are somewhat noisy is easily
+verified:
+
+```s
+	separate h, by(v703)
+	gen d = segment+1.5
+	line h1 h2 h3 d, lpat(solid longdash dash) ///
+	  title("The Third Child in Colombia, 1976") ///
+	  subtitle(Hazard Functions by Childhood Residence) ///
+	  xtitle(duration since 2nd birth) ///
+	  ytitle(hazard of having 3rd birth) ///
+	  legend(order(1 "Rural" 2 "Town" 3 "City") ring(0) col(1) pos(2))
+	graph export co3rdhaz.png, replace
+```
+
+![](co3rdhaz.png){.img-responsive .center-block .stata}
+
+Fitting a proportional hazards model is quite easy using the Poisson
+trick. (This is covered in some detail in the GLM course.)
+
+Let us construct dummy variables for duration and childhood residence
+and then run a regression for the first five years using the log of
+exposure time as an offset.
+
+```s
+	gen town = v703==2
+	gen city = v703==3
+	forvalues d = 12(3)57 {
+	  gen dur`d' = segment == `d'.5
+	}
+	gen os = log(expo)
+	gen touse = seg > 9 & seg < 60 
+	poisson births dur12-dur57 town city if touse, offset(os)
+	estat gof
+```
+
+The duration coefficients track an early increase in hazard up to about
+a year and a half followed by a steady decline thereafter. On average,
+at any given duration since second birth the risk of having a third
+child is 18.3% lower for women who grew up in towns and 32.1% lower for
+women who grew up in cities than for those who grew up in rural areas.
+The goodness of fit test indicates, however, that the hazards for the
+three categories of childhood residence are not proportional. This is
+consistent with the differences in timing between women with town and
+city origins noted earlier.

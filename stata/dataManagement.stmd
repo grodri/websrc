@@ -133,7 +133,7 @@ If your data are in free format, with variables separated by blanks,
 commas, or tabs, you can use the <code><u>inf</u>ile</code> command.
 
 For an example of a free format file see the family planning effort data
-available on the web at <https://data.princeton.edu/wws509/datasets>
+available on the web at <https://grodri.github.io/glms/datasets>
 (read the description and click on `effort.raw`). This is essentially a
 text file with four columns, one with country names and three with
 numeric variables, separated by white space. We can read the data into
@@ -141,7 +141,7 @@ Stata using the command
 
 	clear
 	infile str14 country setting effort change using ///
-		https://data.princeton.edu/wws509/datasets/effort.raw
+		https://grodri.github.io/datasets/effort.raw
 
 The <code><u>inf</u>ile</code> command is followed by the names of the variables. 
 Because the country name is a string rather than a numeric variable we precede
@@ -174,7 +174,7 @@ the effort data are neatly lined up in columns, so we could read them as
 follows:
 
 	infix str country 4-17 setting 23-24 effort 31-32 change 40-41 using ///
-		https://data.princeton.edu/wws509/datasets/effort.raw, clear
+		https://grodri.github.io/datasets/effort.raw, clear
 
 This says to read the `country` name from columns 4-17, `setting` from
 columns 23-24, and so on. It is, of course, essential to read the
@@ -189,7 +189,7 @@ can then call from the `infix` command. Try typing the following
 dictionary into a file called `effort.dct`:
 
 ``` 
-infix dictionary using https://data.princeton.edu/wws509/datasets/effort.raw {
+infix dictionary using https://grodri.github.io/datasets/effort.raw {
   str country  4-17
 	  setting 23-24
 	  effort  31-32

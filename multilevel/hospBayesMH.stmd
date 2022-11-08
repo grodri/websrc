@@ -14,14 +14,14 @@ for the fixed effects. This results in a much more efficient algorithm.
 Let us try this command on the hospital delivery data previously
 analyzed with 
 [maximum likelihood](hospmle), 
-[Gibbs sampling with BUGS](hospBUGS), 
-[Gibbs sampling with JAGS](hospJAGS), 
-and [Hamiltonian Monte Carlo with Stan](hospStan).
+[Gibbs sampling with BUGS](hospbugs), 
+[Gibbs sampling with JAGS](hospjags), 
+and [Hamiltonian Monte Carlo with Stan](hospstan).
 First we read the data
 
 ```s
 	infile hosp loginc distance dropout college mother ///
-		using https://data.princeton.edu/pop510/hospital.dat, clear
+		using https://grodri.github.io/datasets/hospital.dat, clear
 ```
 
 Next we run the model. My setup follows very closely the example in the

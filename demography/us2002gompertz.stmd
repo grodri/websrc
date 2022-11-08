@@ -1,0 +1,100 @@
+
+## The Gompertz Model
+
+We will illustrate fitting a Gompertz model to U.S. adult mortality. The
+survival function for U.S. males in 2002 is available in the datasets
+section of this website.
+
+.include srtabs
+
+```s
+	infile age lx using ///
+	  https://grodri.github.io/datasets/us2002m.dat, clear
+```
+
+```r
+	us <- read.table("https://grodri.github.io/datasets/us2002m.dat",
+	  header = FALSE, col.names = c("age", "lx"))
+```
+
+We will compute the cumulative hazard by taking logs, the average hazard
+for each age by differencing, and the age midpoint by averaging:
+
+```s
+	quietly replace lx = lx / 100000
+	gen Hx = - log(lx)
+	gen hx = H[_n+1] - H
+	gen am = (age + age[_n+1])/2
+	line hx am, yscale(log)
+```
+
+![](usm02g.png){.img-responsive .img-center .stata}
+
+```r
+	library(dplyr)
+	library(ggplot2)
+	us <- mutate(us, lx = lx/100000, Hx = -log(lx))
+	midpoints <- function(x) (x[-1] + x[-length(x)])/2
+	ush <- data.frame(hx = diff(us$Hx), x = midpoints(us$age))
+	ggplot(ush, aes(x, hx)) + geom_line() + scale_y_log10()
+```
+
+![](usm02gr.png){.img-responsive .img-center .r}
+
+We see the familiar shape and note that it is quite linear for adults,
+as shown by the red line based on a Gompertz fit. How do we get that?
+
+We just regress the log-hazard on age for ages 30 and older. To make the
+constant a bit more meaningful we will measure age from 30
+
+```s
+	gen loghx = log(hx)
+	gen am30 = am - 30
+	regress loghx am30 if age >= 30
+```
+
+```r
+	lf <- lm(log(hx) ~ I(x - 30), data = filter(ush, x > 30))
+	summary(lf)
+```
+
+We get an R-squared of 0.9963 and estimates of -6.889 for the constant
+and 0.0858 for the slope.
+
+The constant tells us the hazard at exact age 30 is just about one per
+thousand, and the slope tells us that the hazard increases 8.58% per
+year starting at age 30 (so it doubles in just over 8 years.)
+
+The code used to add the red line to the plot was
+
+```s
+	predict loghf
+	gen hf = exp(loghf)
+	twoway (line hx am) (line hf am if age >=30) ///
+	, yscale(log) ytitle(Hazard) xtitle(age) ///
+	  title("Age-Specific Mortality and Gompertz Fit") ///
+	  subtitle("U.S. Males 2002") ///
+	  legend(order(1 "observed" 2 "Gompertz") ring(0) pos(5) col(1)) 
+	graph export usm02g.png, width(500) replace
+```
+
+
+```r
+	ushf <- filter(ush, x > 30) %>%  mutate(hf = exp(fitted(lf)))
+	ggplot(ush, aes(x, hx)) + geom_line() + scale_y_log10() +
+	  geom_line(data=ushf, aes(x, hf), color = "red")
+	ggsave("usm02gr.png", width = 500/72, height = 400/72, dpi = 72)  
+```
+
+We predict the log-hazard but exponentiate to get a fitted hazard. (We
+usually get more meaningful labels if we let the software use a log
+scale.)
+
+The datasets section has the survival function for U.S. females (the file
+is called `us2002f.dat`). Verify that age-specific mortality at age 30
+is much lower for women than men (about half!) and that women seem to
+age a bit faster than men. But are adult female mortality rates ever
+higher than men's?
+
+Note: Updated february 2016 using latest data from the Human Mortality
+Database.

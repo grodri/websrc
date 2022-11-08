@@ -861,7 +861,7 @@ If your data are in free format, with variables separated by blanks,
 commas, or tabs, you can use the <code><u>inf</u>ile</code> command.
 
 For an example of a free format file see the family planning effort data
-available on the web at <https://data.princeton.edu/wws509/datasets>
+available on the web at <https://grodri.github.io/glms/datasets>
 (read the description and click on `effort.raw`). This is essentially a
 text file with four columns, one with country names and three with
 numeric variables, separated by white space. We can read the data into
@@ -869,7 +869,7 @@ Stata using the command
 
 	clear
 	infile str14 country setting effort change using ///
-		https://data.princeton.edu/wws509/datasets/effort.raw
+		https://grodri.github.io/datasets/effort.raw
 
 The <code><u>inf</u>ile</code> command is followed by the names of the variables. 
 Because the country name is a string rather than a numeric variable we precede
@@ -902,7 +902,7 @@ the effort data are neatly lined up in columns, so we could read them as
 follows:
 
 	infix str country 4-17 setting 23-24 effort 31-32 change 40-41 using ///
-		https://data.princeton.edu/wws509/datasets/effort.raw, clear
+		https://grodri.github.io/datasets/effort.raw, clear
 
 This says to read the `country` name from columns 4-17, `setting` from
 columns 23-24, and so on. It is, of course, essential to read the
@@ -917,7 +917,7 @@ can then call from the `infix` command. Try typing the following
 dictionary into a file called `effort.dct`:
 
 ``` 
-infix dictionary using https://data.princeton.edu/wws509/datasets/effort.raw {
+infix dictionary using https://grodri.github.io/datasets/effort.raw {
   str country  4-17
 	  setting 23-24
 	  effort  31-32
@@ -1344,7 +1344,7 @@ The example below uses an extract from the 1975 Dominican
 Republic Fertility Survey and tabulates the distribution of
 respondent's education
 
-	use https://data.princeton.edu/stata/drsr03x, clear
+	use https://grodri.github.io/datasets/drsr03x, clear
 	table educg, statistic(frequency) statistic(percent)
 
 If you just type `table educg` you will see the frequencies, which 
@@ -1705,7 +1705,7 @@ modify the header, and remove a vertical border. Try the following
 commands (you may want to try the first two without `quietly` to see 
 what happens at each step):
 
-	use https://data.princeton.edu/stata/drsr03x, clear
+	use https://grodri.github.io/datasets/drsr03x, clear
 	quietly table educg cuse, stat(percent, across(cuse)) stat(frequency)
 	quietly collect layout (educg) ///
 	    (cuse#result[percent]  cuse[.m]#result[frequency])
@@ -1773,7 +1773,7 @@ fertility decline first used in Section 2.1. To read the data from
 net-aware Stata type
 
 	infile str14 country setting effort change ///
-		using https://data.princeton.edu/wws509/datasets/effort.raw, clear
+		using https://grodri.github.io/datasets/effort.raw, clear
 
 To whet your appetite, here's the plot that we will produce in this
 section:
@@ -3059,7 +3059,7 @@ proportion married, compute fitted values based on the estimates in
 Rodríguez and Trussell (1980), and plot the results. It's all done in a
 handful of lines
 
-	use https://data.princeton.edu/eco572/datasets/cohhnupt, clear
+	use https://grodri.github.io/datasets/cohhnupt, clear
 	gen agem = age + 0.5
 	gen obs = ever/total
 	egen fit = pnupt(agem), mean(22.44) stdev(5.28) pem(.858)

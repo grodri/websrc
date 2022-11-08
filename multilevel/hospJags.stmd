@@ -6,9 +6,11 @@ Bayesian models using MCMC. It uses essentially the same model language
 as WinBUGS or OpenBUGS. It works closely with R via `rjags`, so that's
 what I will use here. Let's try it. 
 
+::: {style="border-left:2px solid #3366cc; padding-left:1em"}
 Start by downloading JAGS from 
 [here](https://sourceforge.net/projects/mcmc-jags/files).
 Then in R `install.packages("rjags")`, which will also install `coda`.
+:::
 
 We start by writing our model and saving it to a file, here `hosp.bugs`.
 This is exactly the same code used for WinBUGS [here](hospBUGS).
@@ -43,7 +45,7 @@ list with the number of observations (N) and groups (M), the outcome
 `college`. We also need `mother`, which groups the births.
 
 ```r
-	hosp <- read.table("https://data.princeton.edu/pop510/hospital.dat", 
+	hosp <- read.table("https://grodri.github.io/datasets/hospital.dat", 
 		header = FALSE)
 	names(hosp) <- c("hosp","loginc","distance","dropout","college","mother")
 	hosp_data <- list(N = 1060, M = 501, hospital = hosp$hosp, 

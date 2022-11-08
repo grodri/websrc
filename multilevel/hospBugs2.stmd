@@ -1,4 +1,3 @@
-<!-- CHANGE FOLDER -->
 
 ## Running WinBUGS in Batch Mode {#WinBUGS2 .first}
 
@@ -12,10 +11,12 @@ results for further analysis. Here I'll focus on running WinBUGS directly.
 See Thompson et al. (2006) for Stata, and Sturtz, Ligges and Gelman (2005)
 for R.
 
+::: {style="border-left:2px solid #3366cc; padding-left:1em"}
 *Note*. WinBUGS works with local files. You may want to start by downloading
 `hospital.dat`, `hospModel.txt`, `hospList.txt`, `hospInits.txt`, and 
 `hospScript.txt`. The code below assumes that these files are in `d:\temp`, 
 but you will need to change that.
+:::
 
 #### Model and Data Files
 
