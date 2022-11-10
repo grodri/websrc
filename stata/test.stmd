@@ -1,0 +1,15 @@
+---
+title: Stata Tutorial 
+author: Germán Rodríguez
+date: September 2022
+lang: en-GB
+geometry: margin=1.25in
+fontsize: 11pt
+header-includes:
+  - \input{tweaks.tex}
+bibliography: tutorial.bib
+nocite: |
+ @*
+---
+
+Testing yaml.

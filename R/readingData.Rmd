@@ -81,8 +81,7 @@ Venezuela          91       7       11
 
 This small dataset includes an index of social setting, an index of family 
 planning effort, and the percent decline in the crude birth rate between 1965 
-and 1975. The data are available at 
-<https://grodri.github.io/datasets/> in a file called `effort.dat` 
+and 1975. The data are available on this website in a file called `effort.dat` 
 that includes a header with the variable names.
 
 R can read the data directly from the web:
@@ -410,3 +409,7 @@ the graph into a document in your favorite word processor, and try resizing and
 printing it. I recommend that you use the windows metafile format for the cut 
 and paste operation.
 
+```{=html}
+<p class="pull-right">Continue with <a href="linearModels" class="btn btn-default">
+Linear Models</a></p>
+```

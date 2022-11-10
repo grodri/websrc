@@ -1,7 +1,7 @@
 ---
 title: Introducing R
 author: Germán Rodríguez
-date: Updated November 2020
+date: Updated November 2022
 bibliography: introducingR.bib
 output: pdf_document
 fontsize: 11pt
@@ -15,20 +15,30 @@ header-includes:
 knitr::opts_chunk$set(comment = NA, prompt = TRUE)
 ```
 
-The purpose of these notes is to provide a quick introduction to R, 
-particularly as a tool for fitting linear and generalized linear models. 
-The notes originated in a 1992 handout introducing S-Plus, but have been 
-substantially rewritten to target R using R Studio. Each of the subjects 
-discussed here includes a sample application. Additional examples will be 
-found in the R logs of my GML course, as well as in the pages for courses 
-on Multilevel Models, Survival Analysis and Demographic Methods, all at 
-<https://data.princeton.edu>.
+
+```{=html}
+<div class="lead"><small>
+The purpose of these notes is to provide a quick introduction to R,
+particularly as a tool for fitting linear and generalized linear models.
+A PDF version is available <a href="introducingR.pdf">here</a>. The web 
+pages and PDF were created using <code>markdown</code> as explained in 
+the last section. You will find many applications in the computing logs 
+for the statistics courses on this site.</small></div>
+```
 
 # 1 Introduction
 
 R is a powerful environment for statistical computing which runs on several 
 platforms. These notes are written specially for users running the Windows 
 version, but most of the material applies to the Mac and Linux versions as well.
+Following some bibliographic remarks and tips for getting started, 
+I describe reading and examining data, and fitting linear and generalized 
+linear models. I close with a few pointers and references on where to go 
+from here. I have tried to introduce key features of R as needed by 
+students in my statistics classes. As a result, I often postpone (or
+altogether omit) discussion of some of the more powerful features of R
+as a programming language.
+
 
 ## 1.1 The R Language and environment
 
@@ -51,12 +61,6 @@ You can download the program from the [Comprehensive R Archive Network
 are available for Windows, Mac OS, and Linux. The source code is also available 
 for download and can be compiled for other platforms.
 
-These notes are organized in several sections, covering getting started, 
-reading data, fitting linear models, and fitting generalized linear models. I 
-close with a few pointers and references on where to go from here. I have tried 
-to introduce key features of R as they are needed by students in my statistics 
-classes. As a result, I often postpone (or altogether omit) discussion of some 
-of the more powerful features of R as a programming language.
 
 ## 1.2 Bibliographic Remarks
 
@@ -110,6 +114,10 @@ coding standards, and finally the massive *R  Reference Index* (~3000 pages).
 The online help facility is excellent. For additional references see the 
 annotated list at [R Books](https://www.r-project.org/doc/bib/R-books.html).
 
+```{=html}
+<p class="pull-right">Continue with <a href="gettingStarted" class="btn btn-default">
+Getting Started</a></p>
+```
 
 # 2 Getting Started
 
@@ -449,6 +457,11 @@ spreadsheet document. (In R you can also print the graph using `File | Print`).
 = 2$. Use standard normal errors generated as `rnorm(20)`, where 20 is the 
 number of observations.
 
+```{=html}
+<p class="pull-right">Continue with <a href="readingData" class="btn btn-default">
+Reading Data</a></p>
+```
+
 # 3 Reading and Examining Data
 
 R can handle several types of data, including numbers, character strings, 
@@ -531,14 +544,13 @@ Venezuela          91       7       11
 
 This small dataset includes an index of social setting, an index of family 
 planning effort, and the percent decline in the crude birth rate between 1965 
-and 1975. The data are available at 
-<https://data.princeton.edu/wws509/datasets/> in a file called `effort.dat` 
+and 1975. The data are available on this website in a file called `effort.dat` 
 that includes a header with the variable names.
 
 R can read the data directly from the web:
   
 ```{r}
-fpe = read.table("https://data.princeton.edu/wws509/datasets/effort.dat")
+fpe = read.table("https://grodri.github.io/datasets/effort.dat")
 ```
 
 The function used to read data frames is `read.table()`. The argument is a 
@@ -860,7 +872,10 @@ the graph into a document in your favorite word processor, and try resizing and
 printing it. I recommend that you use the windows metafile format for the cut 
 and paste operation.
 
-
+```{=html}
+<p class="pull-right">Continue with <a href="linearModels" class="btn btn-default">
+Linear Models</a></p>
+```
 # 4 Linear Models
 
 Let us try some linear models, starting with multiple regression and analysis 
@@ -1150,8 +1165,337 @@ solve( t(X) %*% X ) %*% t(X) %*% fpe$change
 
 Compare these results with `coef(lmfit)`.
 
+```{=html}
+<p class="pull-right">Continue with <a href="glms" class="btn btn-default">
+Generalized Linear Models</a></p>
+```
+# 5 Generalized Linear Models
+
+Generalized linear models are just as easy to fit in R as ordinary linear 
+model. In fact, they require only an additional parameter to specify the 
+variance and link functions.
+
+## 5.1 Variance and Link Families
+
+The basic tool for fitting generalized linear models is the `glm()` function, 
+which has the folllowing general structure:
+
+```{.r}
+> glm(formula, family, data, weights, subset, ...)
+```
+
+where `...` stands for more esoteric options. The only parameter that we have 
+not encountered before is `family`, which is a simple way of specifying a 
+choice of variance and link functions. There are six choices of family:
+
+Family	          Variance          Link
+----------------- ----------------- -----------
+gaussian	        gaussian          identity
+binomial	        binomial	        logit, probit or cloglog
+poisson           poisson	          log, identity or sqrt
+gamma             gamma	            inverse, identity or log
+inverse.gaussian	inverse.gaussian  $1/\mu^2$
+quasi	            user-defined	    user-defined
+
+As can be seen, each of the first five choices has an associated variance 
+function (for binomial, the binomial variance $\mu(1 - \mu)$, and one or more 
+choices of link functions (for binomial, the logit, probit or complementary 
+log-log links).
+
+As long as you want the default link, all you have to specify is the family 
+name. If you want an alternative link, you must add a link argument. For 
+example to do probits you use
+
+```{.r}
+> glm( formula, family = binomial(link = probit))
+```
+
+The last family on the list, `quasi`, is there to allow fitting user-defined 
+models by maximum quasi-likelihood.
+
+## 5.2 Logistic Regression
+
+We will illustrate fitting logistic regression models using the contraceptive 
+use data excerpted below (and shown in full further below):
+
+```{.r}
+  age education wantsMore notUsing using 
+  <25       low       yes       53     6
+  <25       low        no       10     4
+  ... lines omitted ...
+40-49      high        no       12    31
+```
+The data are available from the datasets section of this website in a
+file called `cuse.dat`, and can be read directly from within R:
+
+```{r}
+cuse = read.table("https://grodri.github.io/datasets/cuse.dat", header 
+= TRUE)
+cuse
+```
+
+I specified the `header` parameter as `TRUE`, because otherwise it would not 
+have been obvious that the first line in the file has the variable names. There 
+are no row names specified, so the rows will be numbered from 1 to 16. I also 
+printed the data to make sure we got it alright.
+
+Let us try a simple additive model where contraceptive use depends on age, 
+education and whether or not the woman wants more children:
+
+```{r}
+lrfit = glm( cbind(using, notUsing) ~ age + education + wantsMore, 
+  data = cuse, family = binomial)
+```
+
+There are a few things to explain here. First, the function is `glm()` and I 
+have assigned its value to an object called `lrfit` (for logistic regression 
+fit). The first argument of the function is a model formula, which defines the 
+response and linear predictor.
+
+With binomial data the response can be either a vector or a matrix with two 
+columns.
+
+* If the response is a *vector*, it can be numeric with 0 for failure and 1 for 
+success, or a factor with the first level representing "failure" and all others 
+representing "success". In these cases R generates a vector of ones to 
+represent the binomial denominators.
+
+* Alternatively, the response can be a *matrix* where the first column is the 
+number of "successes" and the second column is the number of "failures". In 
+this case R adds the two columns together to produce the correct binomial 
+denominator.
+
+Because the latter approach is clearly the right one for us, I used the 
+function `cbind()` to create a matrix by binding the column vectors containing 
+the numbers using and not using contraception.
+
+Following the special symbol `~` that separates the response from the 
+predictors, we have a standard Wilkinson-Rogers model formula. In this case we 
+are specifying main effects of `age`, `education` and `wantsMore`. Because all 
+three predictors are categorical variables, they are treated automatically as 
+factors, as you can see by inspecting the results:
+  
+``` {r}
+lrfit
+```
+
+Recall that R sorts the levels of a factor in alphabetical order. Because `<25` 
+comes before `25-29`, `30-39`, and `40-49`, it has been picked as the reference 
+cell for `age`. Similarly, `high` is the reference cell for `education` because 
+high comes alphabetically before `low`! Finally, R picked `no` as the base for 
+`wantsMore`.
+
+If you are unhappy about these choices you can (1) use `relevel()` to change 
+the base category, or (2) define your own indicator variables. I will use the 
+second approach,  defining indicators for women with high education and women 
+who want no more children, both added to the `cuse` data frame:
+
+```{r}
+cuse$noMore = cuse$wantsMore == "no"
+cuse$hiEduc = cuse$education == "high"
+```
+
+Now try the model with these predictors
+
+```{r}
+glm(cbind(using, notUsing) ~ age + hiEduc + noMore, 
+  data = cuse, family = binomial)
+```
 
 
+The residual deviance of 29.92 on 10 d.f. is highly significant:
+
+```{r}
+pchisq(29.92, 10, lower.tail = FALSE)
+```
+
+To obtain a p-value I specified `lower.tail` as `FALSE`. This is more accurate 
+than computing the default lower tail and subtracting from one.
+
+So, we need a better model. One of my favorites for this dataset introduces an 
+interaction between age and wanting no more children,
+which is easily specified
+
+```{r}
+lrfit2 = glm( cbind(using, notUsing) ~ age * noMore + hiEduc , data = cuse, 
+family = binomial)
+lrfit2
+```
+
+Note how R built the interaction terms automatically, and even came up with 
+sensible labels for them. The model's deviance of 12.63 on 7 d.f. is not 
+significant at the conventional five per cent level, so we have no evidence 
+against this model.
+
+To obtain more detailed information about this fit try the `summary()` function:
+
+```{r}
+summary(lrfit2)
+```
+
+R follows the popular custom of flagging significant coefficients with one, two 
+or three stars depending on their p-values. Try `plot(lrfit2)`. You get the 
+same plots as in a linear model, but adapted to a generalized linear model; for 
+example the residuals plotted are deviance residuals (the square root of the 
+contribution of an observation to the deviance, with the same sign as the raw 
+residual).
+
+The functions that can be used to extract results from the fit include
+
+- `residuals()` or `resid()`, for the deviance residuals
+- `fitted()` or `fitted.values()`, for the fitted values (estimated 
+probabilities)
+- `predict()`, for the linear predictor (estimated logits)
+- `coef()` or `coefficients()`, for the coefficients, and
+- `deviance()`, for the deviance.
+
+Some of these functions have optional arguments; for example, you can extract 
+five different types of residuals, called "deviance", "pearson", "response" 
+(defined as response - fitted value), "working" (the working dependent variable 
+in the IRLS algorithm - linear predictor), and "partial" (a matrix of working 
+residuals formed by omitting each term in the model). You specify the one you 
+want using the `type` argument, for example `residuals(lrfit2, type = 
+"pearson")`.
+
+## 5.3 Model Updating
+
+If you want to modify a model you may consider using the special function 
+`update()`. For example to drop the `age:noMore` interaction in our model, one 
+could use
+
+ ```{r}
+ lrfit1 = update(lrfit2, ~ . - age:noMore)
+ ```
+ 
+The first argument is the result of a fit, and the second an updating formula. 
+The tilde `~` separates the response from the predictors, and the dot `.` 
+refers to the right-hand side of the original formula, so here we simply remove 
+`age:noMore`. Alternatively, one can give a new formula as the second argument.
+ 
+The update function may also be used to fit the same model to different 
+datasets, using the argument `data` to specify a new data frame. Another useful 
+argument is `subset`, to fit the model to a different subsample. This function 
+works with linear models as well as generalized linear models.
+
+If you plan to fit a sequence of models you will find the anova function 
+useful. Given a series of nested models, it will calculate the change in 
+deviance between them. Try
+
+```{r}
+anova(lrfit1, lrfit2)
+```
+
+Adding the interaction has reduced the deviance by 17.288 at the expense of 3 
+d.f.
+
+If the argument to `anova()` is a single model, the function will show the 
+change in deviance obtained by adding each of the terms in the order listed in 
+the model formula, just as it did for linear models. Because this requires 
+fitting as many models as there are terms in the formula, the function may take 
+a while to complete its calculations.
+
+The `anova()` function lets you specify an optional test. The usual choices 
+will be "F" for linear models and "Chisq" for generalized linear models. Adding 
+the parameter `test = "Chisq"` adds p-values next to the deviances. In our case
+
+```{r}
+anova(lrfit2, test = "Chisq")
+```
+
+We can see that all terms were highly significant when they were introduced 
+into the model.
+
+## 5.4 Model Selection
+
+A very powerful tool in R is a function for stepwise regression that has three 
+remarkable features:
+
+* It works with generalized linear models, so it will do stepwise logistic 
+regression, or stepwise Poisson regression,
+
+* It understand hierarchical models, so it will only consider adding 
+interactions after including the corresponding main effects in the models, and
+
+* It understands terms involving more than one degree of freedom, so it it will 
+keep together dummy variables representing the effects of a factor.
+
+The basic idea of the procedure is to start from a given model (which could 
+well be the null model) and take a series of steps, by either deleting a term 
+already in the model, or adding a term from a list of candidates for inclusion, 
+called the scope of the search and defined, of course, by a model formula.
+
+Selection of terms for deletion or inclusion is based on Akaike's information 
+criterion (AIC). R defines AIC as
+
+AIC = –2 maximized log-likelihood + 2 number of parameters
+
+The procedure stops when the AIC criterion cannot be improved.
+
+In R all of this work is done by calling a couple of functions, `add1()` and 
+`drop1()~, that consider adding or dropping one term from a model. These 
+functions can be very useful in model selection, and both of them accept a 
+`test` argument just like `anova()`.
+
+Consider first `drop1()`. For our logistic regression model,
+
+```{r}
+drop1(lrfit2, test = "Chisq")
+```
+
+Obviously we can't drop any of these terms. Note that R considered dropping the 
+main effect of education, and the age by want no more interaction, but did not 
+examine the main effects of age or want no more, because one would not drop 
+these main effects while retaining the interaction.
+
+The sister function `add1()` requires a scope to define the additional terms to 
+be considered. In our example we will consider all possible two-factor 
+interactions:
+
+```{r}
+add1(lrfit2, ~ .^2, test = "Chisq")
+```
+
+We see that neither of the missing two-factor interactions is significant by 
+itself at the conventional five percent level. (However, they happen to be 
+jointly significant.) Note that the model with the age by education interaction 
+has a lower AIC than our starting model.
+
+The `step()` function will do an automatic search. Here we let it start from 
+the additive model and search in a scope defined by all two-factor interactions.
+
+
+```{r results = FALSE}
+search = step(lrfit1, ~.^2)
+```
+
+The `step()` function produces detailed trace output that I have supressed. The 
+returned object, however, includes an `anova` component that summarizes the 
+search:
+
+```{r}
+search$anova
+```
+As you can see, the automated procedure introduced, one by one, all three 
+remaining two-factor interactions, to yield a final AIC of 99.9. This is an 
+example where AIC, by requiring a deviance improvement of only 2 per parameter, 
+may have led to overfitting the data.
+
+Some analysts prefer a higher penalty per parameter. In particular, using 
+`log(n)` instead of 2 as a multiplier yields BIC, the Bayesian Information 
+Criterion. In our example `log(1607) = 7.38`, so we would require a deviance 
+reduction of 7.38 per additional parameter. The `step()` function accepts `k` 
+as an argument, with default 2. You may verify that specifying `k = log(1607)` 
+leads to a much simpler model; not only are no new interactions introduced, but 
+the main effect of education is dropped (even though it is significant). 
+
+In this example AIC would lead to a model that may be too complex, and BIC 
+would lead to a model that may be too simple. In my opinion, the model with 
+only one interaction is just right.
+
+```{=html}
+<p class="pull-right">Continue with <a href="conclusion" class="btn btn-default">
+Conclusion</a></p>
+```
 # 6 Next Steps
 
 These notes have hardly scratched the surface of R, which has many more 
@@ -1194,7 +1538,7 @@ recommend @wickham2019's *Advanced R* book.
 R is an interpreted language but it is reasonably fast, particularly if you 
 take advantage of the fact that operations are vectorized, and try to avoid 
 looping. Where efficiency is crucial you can always write a function in a 
-compiled language such as C or Fortran and then call it from R. Some of my 
+compiled language such as C++ and then call it from R. Some of my 
 work on multilevel generalized linear models used this approach.
 
 Last, but most certainly not least, you will want to learn about dynamic 
@@ -1203,12 +1547,16 @@ written in Markdown with R code, an approach that has excellent support in R
 Studio. The definite book on the subject is @xieAllaireGrolemund2019. 
 
 This tutorial has been written in R Markdown. You can download the 
-[source code](https://data.princeton.edu/R/introducingR.Rmd) and the 
-[bibliography file](https://data.princeton.edu/R/introducingR.bib). 
-To reproduce the PDF document you also need
-[tweaks.tex](https://data.princeton.edu/R/tweaks.tex).
+source code `introducingR.Rmd`, the bibliography file `introducingR.bib`,
+and the image file `RStudioIDE.png` from
+[GitHub](https://raw.githubusercontent.com/grodri/websrc/tree/main/R). 
+To reproduce the PDF document you also need `tweaks.tex` from the same source.
 To generate an HTML document instead, change the output specification near
 the top of the script.
  
 
 # References
+
+
+
+

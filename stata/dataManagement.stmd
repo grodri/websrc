@@ -132,9 +132,8 @@ Stat/Transfer ([stattransfer.com](https://stattransfer.com/)).
 If your data are in free format, with variables separated by blanks,
 commas, or tabs, you can use the <code><u>inf</u>ile</code> command.
 
-For an example of a free format file see the family planning effort data
-available on the web at <https://grodri.github.io/glms/datasets>
-(read the description and click on `effort.raw`). This is essentially a
+For an example of a free format file we will use the family planning effort 
+data available on the datasets section of this website. This is essentially a
 text file with four columns, one with country names and three with
 numeric variables, separated by white space. We can read the data into
 Stata using the command

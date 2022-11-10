@@ -41,7 +41,7 @@ recommend @wickham2019's *Advanced R* book.
 R is an interpreted language but it is reasonably fast, particularly if you 
 take advantage of the fact that operations are vectorized, and try to avoid 
 looping. Where efficiency is crucial you can always write a function in a 
-compiled language such as C or Fortran and then call it from R. Some of my 
+compiled language such as C++ and then call it from R. Some of my 
 work on multilevel generalized linear models used this approach.
 
 Last, but most certainly not least, you will want to learn about dynamic 
@@ -50,12 +50,15 @@ written in Markdown with R code, an approach that has excellent support in R
 Studio. The definite book on the subject is @xieAllaireGrolemund2019. 
 
 This tutorial has been written in R Markdown. You can download the 
-[source code](https://data.princeton.edu/R/introducingR.Rmd) and the 
-[bibliography file](https://data.princeton.edu/R/introducingR.bib). 
-To reproduce the PDF document you also need
-[tweaks.tex](https://data.princeton.edu/R/tweaks.tex).
+source code `introducingR.Rmd`, the bibliography file `introducingR.bib`,
+and the image file `RStudioIDE.png` from
+[GitHub](https://raw.githubusercontent.com/grodri/websrc/tree/main/R). 
+To reproduce the PDF document you also need `tweaks.tex` from the same source.
 To generate an HTML document instead, change the output specification near
 the top of the script.
  
 
 # References
+
+
+

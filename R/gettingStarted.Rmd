@@ -2,7 +2,7 @@
 # 2 Getting Started
 
 Obviously the first thing you need to do is download a copy of R. This tutorial
-was created using version 4.0.3, released in October 2020. New releases occur every 
+was last revised using version 4.2.1, released in June 2022. New releases occur every 
 six months or so. You will find the latest version and binaries for Windows, Mac OS X, 
 and Linux in the [Comprehensive R Archive Network](https://cran.r-project.org/). 
 Find the  mirror nearest you and follow the links. The Windows installer is fairly 
@@ -336,3 +336,8 @@ spreadsheet document. (In R you can also print the graph using `File | Print`).
 \beta x + e$ using the `x` vector generated above. Set $\alpha = 1$ and $\beta 
 = 2$. Use standard normal errors generated as `rnorm(20)`, where 20 is the 
 number of observations.
+
+```{=html}
+<p class="pull-right">Continue with <a href="readingData" class="btn btn-default">
+Reading Data</a></p>
+```

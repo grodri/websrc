@@ -872,7 +872,7 @@ handful of lines
 	twoway (scatter obs agem) (line fit agem), ///
 		title(Proportions Married by Age) subtitle(Colombia 1976) ///
 		ytitle(Proportion married) xtitle(age)
-	graph export cchhnup.png, 	width(500) replace
+	graph export cohhnup.png, 	width(500) replace
 
 The actual estimation can be implemented using Stata's maximum
 likelihood procedures, but that's a story for another day.

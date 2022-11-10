@@ -1,3 +1,14 @@
+---
+layout: default
+section: R
+tab: "GLMs"
+git: true
+---
+
+<style>
+pre {background-color: white;} 
+pre.r {background-color: #fafafa;}
+</style>
 
 # 5 Generalized Linear Models
 
@@ -55,12 +66,8 @@ use data excerpted below (and shown in full further below):
   ... lines omitted ...
 40-49      high        no       12    31
 ```
-The data are available from the datasets section of the website for my 
-generalized linear models course. Visit 
-<https://grodri.github.io/glms/datasets> to read a short description and 
-follow the link to `cuse.dat`.
-
-Of course the data can be downloaded directly from within R:
+The data are available from the datasets section of this website in a
+file called `cuse.dat`, and can be read directly from within R:
 
 ```{r}
 cuse = read.table("https://grodri.github.io/datasets/cuse.dat", header 
@@ -325,3 +332,8 @@ the main effect of education is dropped (even though it is significant).
 In this example AIC would lead to a model that may be too complex, and BIC 
 would lead to a model that may be too simple. In my opinion, the model with 
 only one interaction is just right.
+
+```{=html}
+<p class="pull-right">Continue with <a href="conclusion" class="btn btn-default">
+Conclusion</a></p>
+```

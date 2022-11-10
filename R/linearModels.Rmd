@@ -287,3 +287,8 @@ solve( t(X) %*% X ) %*% t(X) %*% fpe$change
 ```
 
 Compare these results with `coef(lmfit)`.
+
+```{=html}
+<p class="pull-right">Continue with <a href="glms" class="btn btn-default">
+Generalized Linear Models</a></p>
+```
