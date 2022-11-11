@@ -427,3 +427,7 @@ Tables are displayed on your screen but can also be exported in
 various formats, including HTML, Word documents, Excel documents,
 LaTeX, PDF, plain text, Markdown and even Stata's own SMCL format.
 Type `collect export` to learn more.
+
+```{=html}
+<p class="pull-right">Continue with <a href="graphics" class="btn btn-default">Graphics</a></p>
+```

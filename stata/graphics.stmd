@@ -17,7 +17,7 @@ all the steps in your research.
 
 All the graphs in this section (except where noted) use a custom scheme 
 with blue titles and a white background, but otherwise should look the
-same as your own graphs. I discuss schemes in Section 3.2.5.
+same as your own graphs. I discuss schemes in Section 4.2.5.
 
 ## 4.1 Scatterplots {#s41}
 
@@ -26,7 +26,7 @@ fertility decline first used in Section 2.1. To read the data from
 net-aware Stata type
 
 	infile str14 country setting effort change ///
-		using https://grodri.github.io/datasets/datasets/effort.raw, clear
+		using https://grodri.github.io/datasets/effort.raw, clear
 
 To whet your appetite, here's the plot that we will produce in this
 section:
@@ -445,3 +445,7 @@ You can also print a graph using `graph print`, or copy and paste it
 into a document using the Windows clipboard; to do this right click on
 the window containing the graph and then select copy from the context
 menu.
+
+```{=html}
+<p class="pull-right">Continue with <a href="programming" class="btn btn-default">Programming</a></p>
+```

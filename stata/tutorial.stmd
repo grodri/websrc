@@ -1,9 +1,8 @@
 ---
 title: Stata Tutorial 
 author: Germán Rodríguez
-date: September 2022
-lang: en-GB
-geometry: margin=1.25in
+date: November 2022
+geometry: "margin=1.25in"
 fontsize: 11pt
 header-includes:
   - \input{tweaks.tex}
@@ -12,6 +11,15 @@ nocite: |
  @*
 ---
 
+```{=html}
+<div class="lead"><small>
+This tutorial is an introduction to Stata emphasizing data management, tables and 
+graphics.  A PDF version is available <a href="tutorial.pdf">here</a>. The web 
+pages and PDF file were all  generated using the <code>markstat</code> command 
+to combine Markdown and Stata, as described <a href="/markstat">here</a>. You
+will find many applications in the computing logs for the statistics courses on 
+this site.</small></div>
+```
 
 1 Introduction {#s1 .first}
 ==============
@@ -727,6 +735,9 @@ Readers interested in programming Stata will find Christopher F. Baum's
 William Gould's *The Mata Book: A Book for Serious Programmers and Those 
 Who Want to Be* both invaluable.
 
+```{=html}
+<p class="pull-right">Continue with <a href="dataManagement" class="btn btn-default">Data Management</a></p>
+```
 2 Data Management {#s2 .first}
 ==================
 
@@ -860,8 +871,8 @@ Stat/Transfer ([stattransfer.com](https://stattransfer.com/)).
 If your data are in free format, with variables separated by blanks,
 commas, or tabs, you can use the <code><u>inf</u>ile</code> command.
 
-For an example of a free format file we will use the family planning effort 
-data available on the datasets section of this website. This is essentially a
+For an example of a free format file consider the family planning effort data
+available in the datasets sections as `effort.raw`. This is essentially a
 text file with four columns, one with country names and three with
 numeric variables, separated by white space. We can read the data into
 Stata using the command
@@ -1316,6 +1327,9 @@ you can store both datasets as frames, and *link* the household data
 to each individual. There are many more applications, type `help frames` 
 to learn more.
 
+```{=html}
+<p class="pull-right">Continue with <a href="tables" class="btn btn-default">Tables</a></p>
+```
 3 Stata Tables {#s3 .first}
 ===============
 
@@ -1745,6 +1759,9 @@ various formats, including HTML, Word documents, Excel documents,
 LaTeX, PDF, plain text, Markdown and even Stata's own SMCL format.
 Type `collect export` to learn more.
 
+```{=html}
+<p class="pull-right">Continue with <a href="graphics" class="btn btn-default">Graphics</a></p>
+```
 4 Stata Graphics {#s4 .first}
 =================
 
@@ -1763,7 +1780,7 @@ all the steps in your research.
 
 All the graphs in this section (except where noted) use a custom scheme 
 with blue titles and a white background, but otherwise should look the
-same as your own graphs. I discuss schemes in Section 3.2.5.
+same as your own graphs. I discuss schemes in Section 4.2.5.
 
 ## 4.1 Scatterplots {#s41}
 
@@ -2192,6 +2209,9 @@ into a document using the Windows clipboard; to do this right click on
 the window containing the graph and then select copy from the context
 menu.
 
+```{=html}
+<p class="pull-right">Continue with <a href="programming" class="btn btn-default">Programming</a></p>
+```
 5 Programming Stata {#s5 .first}
 ===================
 
@@ -3065,7 +3085,7 @@ handful of lines
 	twoway (scatter obs agem) (line fit agem), ///
 		title(Proportions Married by Age) subtitle(Colombia 1976) ///
 		ytitle(Proportion married) xtitle(age)
-    graph export cohhnup.png, width(500) replace
+	graph export cchhnup.png, 	width(500) replace
 
 The actual estimation can be implemented using Stata's maximum
 likelihood procedures, but that's a story for another day.

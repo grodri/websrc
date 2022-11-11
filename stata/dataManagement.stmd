@@ -132,8 +132,8 @@ Stat/Transfer ([stattransfer.com](https://stattransfer.com/)).
 If your data are in free format, with variables separated by blanks,
 commas, or tabs, you can use the <code><u>inf</u>ile</code> command.
 
-For an example of a free format file we will use the family planning effort 
-data available on the datasets section of this website. This is essentially a
+For an example of a free format file consider the family planning effort data
+available in the datasets sections as `effort.raw`. This is essentially a
 text file with four columns, one with country names and three with
 numeric variables, separated by white space. We can read the data into
 Stata using the command
@@ -587,3 +587,7 @@ of Stata you would have needed to `merge` the files. With Stata 16
 you can store both datasets as frames, and *link* the household data 
 to each individual. There are many more applications, type `help frames` 
 to learn more.
+
+```{=html}
+<p class="pull-right">Continue with <a href="tables" class="btn btn-default">Tables</a></p>
+```
