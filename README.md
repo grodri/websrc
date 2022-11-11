@@ -4,8 +4,8 @@ Source code for statistical computing logs and tutorials
 This repository has the source code and supporting files for the
 statistical software tutorials on the web:
 
-- [Stata Tutorial](https://data.princeton.edu/stata)
-- [Introducing R](https://data.princeton.edu/R)
+- [Stata Tutorial](https://grodri.github.io/stata)
+- [Introducing R](https://grodri.github.io/R)
 
 The Stata Tutorial was written using `markstat`, a command for
 combining Markdown annotations and Stata code, described
@@ -15,12 +15,13 @@ written using `rmarkdown`.
 You will also find the source code for the computing logs for 
 these courses:
 
-- [Multilevel Models](https://data.princeton.edu/pop510)
-- [Survival Analysis](https://data.princeton.edu/pop509)
+- [Multilevel Models](https://grodri.github.io/multilevel)
+- [Survival Analysis](https://grodri.github.io/survival)
+- [Demographic Methods](https://grodri.github.io/demography)
 
-The logs show how to conduct statistical analyses using 
+The 62 logs show how to conduct statistical analyses using 
 Stata or R, with tabs to choose your statistical software,
 and were written using `markstat`.
 
-Coming Soon: courses on Generalized Linear Models, 
-and Demographic Methods.
+Work in Progress: updating the computing logs for the course on
+Generalized Linear Models.
