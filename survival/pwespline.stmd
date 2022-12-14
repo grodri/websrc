@@ -88,8 +88,8 @@ hazard, we can predict using the spline coefficients.
 	ggsave("pweSpliner.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](pweSpline.png){.stata}
-![](pweSpliner.png){.r}
+![](pweSpline.png){.img-responsive .img-center .stata}
+![](pweSpliner.png){.img-responsive .img-center .r}
 
 Showing once agan that the hazard appears to rise initially and then
 decline steadily, so a log-normal is not a bad fit. Note that plotting

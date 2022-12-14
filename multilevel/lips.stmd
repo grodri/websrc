@@ -71,7 +71,7 @@ dataset in memory.]{.stata}
 	graph export scotmap.png, width(500) replace 
 ```
 
-![](scotmap.png){.stata}
+![](scotmap.png){.img-responsive .img-center .stata}
 
 [We first download a file from the Stata bookstore with the map
 polygons. We then prepare a canvas with the right dimensions, draw the
@@ -104,7 +104,7 @@ legend.]{.r}
 	dev.off()
 ```
 
-![](scotmapr.png){.r}
+![](scotmapr.png){.img-responsive .img-center .r}
 
 The incidence of lip cancer is higher in coastal places, particularly in
 the north.

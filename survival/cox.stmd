@@ -257,8 +257,8 @@ output look a bit like `ggplot`.]{.r}
     dev.off()
 ```
 
-![](phplot.png){.stata} 
-![](phplotr.png){.r}
+![](phplot.png){.img-responsive .img-center .stata} 
+![](phplotr.png){.img-responsive .img-center .r}
 
 The residuals show no time trend at all, showing that the treatment
 hazard ratio is fairly constant over time. (We will confirm this result
@@ -317,8 +317,8 @@ estimates using a step function.
     ggsave("coxkmr.png", width=500/72, height=400/72, dpi=72)     
 ```
 
-![](coxkm.png){.stata} 
-![](coxkmr.png){.r}
+![](coxkm.png){.img-responsive .img-center .stata} 
+![](coxkmr.png){.img-responsive .img-center .r}
 
 The figure looks just like Figure 1 in Cox's paper. If the purpose of
 the graph is to check the proportional hazards assumption a much better
@@ -340,7 +340,7 @@ whether curves are parallel than whether they are proportional.
     ggsave("coxphplotr.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](coxphplot.png){.stata} 
-![](coxphplotr.png){.r}
+![](coxphplot.png){.img-responsive .img-center .stata} 
+![](coxphplotr.png){.img-responsive .img-center .r}
 
 The two lines look quite parallel indeed.

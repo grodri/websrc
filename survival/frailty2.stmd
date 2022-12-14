@@ -42,7 +42,7 @@ parameter to `1/v` and the scale to `v`.
 	graph export gfr.png, width(500) replace 
 ```
 
-![](gfr.png){.stata}
+![](gfr.png){.img-responsive .img-center .stata}
 
 ```r
 	v <- exp( -1.5407144 )
@@ -55,7 +55,7 @@ parameter to `1/v` and the scale to `v`.
 	ggsave("gfrr.png", width = 500/72, height = 400/72, dpi = 72)
 ```
 
-![](gfrr.png){.r}
+![](gfrr.png){.img-responsive .img-center .r}
 
 We can also compute quantiles. 
 [Stata has a function `invgammap(a, p)` to compute quantiles of the standard 

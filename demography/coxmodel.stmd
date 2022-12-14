@@ -57,7 +57,7 @@ paper
 	graph export coxkm.png, width(500) replace          
 ```
 
-![](coxkm.png){.stata}
+![](coxkm.png){.img-responsive .img-center .stata}
 
 
 ```r
@@ -77,7 +77,7 @@ paper
 	ggsave("coxkmr.png", width=500/72, height=400/72, dpi=72) 
 ```
 
-![](coxkmr.png){.r}
+![](coxkmr.png){.img-responsive .img-center .r}
 
 Another way to check proportionality of hazards is to plot the log-log
 transformation of the survival functions versus log time, that is
@@ -89,7 +89,7 @@ transformation of the survival functions versus log time, that is
 	graph export coxphplot.png, width(500) replace
 ```
 
-![](coxphplot.png){.stata}
+![](coxphplot.png){.img-responsive .img-center .stata}
 
 ```r
 	dkm <- mutate(dkm,  lls = -log(-log(survival)))
@@ -98,7 +98,7 @@ transformation of the survival functions versus log time, that is
 	ggsave("coxphplotr.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](coxphplotr.png){.r}
+![](coxphplotr.png){.img-responsive .img-center .r}
 
 The two lines look quite parallel indeed, showing a good fit of the
 proportional hazards assumption.

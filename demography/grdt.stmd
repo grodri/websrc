@@ -37,7 +37,7 @@ absolute and log scales.
 	graph export uspop.png, replace width(720) height(360)
 ```	
 
-![](uspop.png){.stata}
+![](uspop.png){.img-responsive .img-center .stata}
 
 ```r
 	us <- mutate(us, pm = pop/1000000)
@@ -49,7 +49,7 @@ absolute and log scales.
 	ggsave("uspopr.png", plot=g, width=10, height=5, dpi=72)
 ```
 
-![](uspopr.png){.r}
+![](uspopr.png){.img-responsive .img-center .r}
 
 
 ## Growth Rates
@@ -181,7 +181,7 @@ At an instantaneous growth rate *r*, the doubling time is $log(2)/r$.
 	graph export usgrdt.png, width(720) height(360) replace
 ```
 
-![](usgrdt.png){.stata}
+![](usgrdt.png){.img-responsive .img-center .stata}
 
 ```r
 	usg <- mutate(usg, doubling.time = log(2)/growth.rate)
@@ -191,7 +191,7 @@ At an instantaneous growth rate *r*, the doubling time is $log(2)/r$.
 	ggsave("usgrdtr.png", plot=g, width=10, height=5, dpi=72)
 ```
 
-![](usgrdtr.png){.r}
+![](usgrdtr.png){.img-responsive .img-center .r}
 
 The U.S. population was doubling every 22-24 years in the first half of the 
 19th century, but the doubling time has increased steadily (except for a 

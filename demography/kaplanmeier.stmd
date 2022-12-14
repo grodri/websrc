@@ -35,7 +35,7 @@ function in each of the two groups.
 	graph export kmg.png, width(500) replace
 ```
 
-![](kmg.png){.stata}
+![](kmg.png){.img-responsive .img-center .stata}
 
 ```r
 	kmg <- survfit(Surv(weeks, relapse) ~ group, data=gehan)
@@ -48,7 +48,7 @@ function in each of the two groups.
 	ggsave("kmgr.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](kmgr.png){.r}
+![](kmgr.png){.img-responsive .img-center .r}
 
 The graph shows that after 23 weeks all patients in the control group
 had relapsed, but about half those in the treated group remained in

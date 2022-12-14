@@ -144,7 +144,7 @@ are informative). Let us calculate these 'by hand'
 	graph export langblup.png, width(500) replace    
 ```
 
-![](langblup.png){.stata}
+![](langblup.png){.img-responsive .img-center .stata}
 
 ```r
 	library(ggplot2)
@@ -157,7 +157,7 @@ are informative). Let us calculate these 'by hand'
 	ggsave("langblupr.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](langblupr.png){.r}
+![](langblupr.png){.img-responsive .img-center .r}
 
 BLUPS can be computed more easily using `xtmixed` in Stata or `ranef()`
 in R

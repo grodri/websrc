@@ -111,7 +111,7 @@ These probabilities can be shown in a bar chart as in the paper:
 	graph export kenyaFig1.png, width(500) replace
 ```
 
-![](kenyaFig1.png){.stata}
+![](kenyaFig1.png){.img-responsive .img-center .stata}
 
 ```r
 	library(ggplot2)
@@ -131,7 +131,7 @@ These probabilities can be shown in a bar chart as in the paper:
 	ggsave("kenyaFig1r.png", width=7, height=5, dpi=72)
 ```
 
-![](kenyaFig1r.png){.r}
+![](kenyaFig1r.png){.img-responsive .img-center .r}
 
 To compute the marginal or population-average probabilities we need to
 integrate out the family and community effects using Gauss-Hermite

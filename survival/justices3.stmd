@@ -62,7 +62,7 @@ and mid years.)
 	graph export justices-ciffg.png, width(500) replace
 ```
 
-![](justices-ciffg.png){.stata}
+![](justices-ciffg.png){.img-responsive .img-center .stata}
 
 [*Aside*: It is instructive to compute these curves 'by hand'. Because
 `predict` sets the covariates to zero, it will be advantageous to center
@@ -101,7 +101,7 @@ transform back to probabilities.]{.stata}
 	cifs[nrow(cifs),]
 ```
 
-![](justices-ciffgr.png){.r}
+![](justices-ciffgr.png){.img-responsive .img-center .r}
 
 We see that the probability of dying while serving in the court is
 declining over time net of age at appointment. For a justice appointed

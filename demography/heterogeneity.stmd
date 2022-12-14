@@ -65,7 +65,7 @@ We are ready to plot the hazars in a log scale
 	graph export uswbmh.png, width(500) replace
 ```
 
-![](uswbmh.png){.stata}
+![](uswbmh.png){.img-responsive .img-center .stata}
 
 ```r
 	filter(us, !is.na(h)) |>
@@ -73,7 +73,7 @@ We are ready to plot the hazars in a log scale
 	ggsave("uswbmhr.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](uswbmhr.png){.r}
+![](uswbmhr.png){.img-responsive .img-center .r}
 
 We see that the hazard in 2002 was higher for blacks at every age up to
 87, but then the curves cross over.
@@ -118,7 +118,7 @@ each ethnic group:
 	graph export uswbmhh0.png, width(600) replace
 ```
 
-![](uswbmhh0.png){.stata}
+![](uswbmhh0.png){.img-responsive .img-center .stata}
 
 ```r
 	ggplot(us, aes(age, log(h0))) + geom_line() + 
@@ -126,7 +126,7 @@ each ethnic group:
 	ggsave("uswbmhh0r.png", width=500/72, height=400/72, dpi=72)    
 ```
 
-![](uswbmhh0r.png){.r}
+![](uswbmhh0r.png){.img-responsive .img-center .r}
 
 We see how, for each ethnic group, the subject-specific hazard rises
 with age more steeply than the population-average hazard. The difference
@@ -146,14 +146,14 @@ individual-level baseline hazards:
 	graph export uswbmh0.png, width(500) replace
 ```
 
-![](uswbmh0.png){.stata}
+![](uswbmh0.png){.img-responsive .img-center .stata}
 
 ```r
 	ggplot(us, aes(age, log(h0), color=race)) + geom_line() 
 	ggsave("uswbmh0r.png", width=500/72, height=400/72, dpi=72)    
 ```
 
-![](uswbmh0r.png){.r}
+![](uswbmh0r.png){.img-responsive .img-center .r}
 
 We see that the cross-over has practically dissappeared, the baseline
 hazard is higher for whites only after age 98. Increasing the variance

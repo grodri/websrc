@@ -207,7 +207,7 @@ We then plot the rates using a log scale (otherwise we wouldn't see much)
 	graph export swkzasmr.png, replace width(500) height(400)
 ```
 
-![](swkzasmr.png){.stata}
+![](swkzasmr.png){.img-responsive .img-center .stata}
 
 ```r
 	library(ggplot2)
@@ -215,7 +215,7 @@ We then plot the rates using a log scale (otherwise we wouldn't see much)
 	ggsave("swkzasmrr.png", width=500/72, height=400/72, dpi=72) 
 ```
 
-![](swkzasmrr.png){.r}
+![](swkzasmrr.png){.img-responsive .img-center .r}
 
 We see clearly that mortality is higher in Kazakhstan than in Sweden at every 
 age. The lines are not exactly parallel, in fact the relative difference seems 

@@ -92,7 +92,7 @@ used to construct the table.
 	graph export mrlogits.png, width(500) replace
 ```
 
-![](mrlogits.png){.stata}
+![](mrlogits.png){.img-responsive .img-center .stata}
 
 ```r
 	qfit <- 1 - c(lfit, 0)/c(1, lfit)  # death probabilities
@@ -105,7 +105,7 @@ used to construct the table.
 	ggsave("mrlogit.png", width=500/72, height=400/72, dpi=72)
 ```
 
-![](mrlogit.png){.r}
+![](mrlogit.png){.img-responsive .img-center .r}
 
 The model gets infant mortality right and does an excellent job at age
 30 and above, but has a bit of trouble in the 5 to 25 range.
@@ -160,7 +160,7 @@ result.
 	graph export logquads.png, width(500) replace
 ```
 
-![](logquads.png){.stata}
+![](logquads.png){.img-responsive .img-center .stata}
 
 ```r
 	fit <- logquad(r$par[1], r$par[2], "male")$logmx[1:18]
@@ -169,7 +169,7 @@ result.
 	ggsave("logquad.png", plot=p, width=500/72, height=400/72, dpi=72)
 ```
 
-![](logquads.png){.r}
+![](logquads.png){.img-responsive .img-center .r}
 
 The fit is pretty good overall but, not unlike the previous model, it
 seems to have some difficulty at ages 10 to 25.
@@ -187,7 +187,7 @@ Here is a graph that overlays the two fits
 	graph export mortmods.png, width(500) replace
 ```
 
-![](mortmods.png){.stata}
+![](mortmods.png){.img-responsive .img-center .stata}
 
 ```r
 	fits <- mutate(lqfit, fitm = log(mfit[-19]))
@@ -200,7 +200,7 @@ Here is a graph that overlays the two fits
 	ggsave("mortmodsr.png", plot=p, width=500/72, height=400/72, dpi=72)
 ```
 
-![](mortmodsr.png){.r}
+![](mortmodsr.png){.img-responsive .img-center .r}
 
 There seems to be some room for improvement, but in my opinion it will
 be hard to do much better without adding a third parameter.
