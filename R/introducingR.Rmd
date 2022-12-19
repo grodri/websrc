@@ -1,7 +1,7 @@
 ---
 title: Introducing R
 author: Germán Rodríguez
-date: Updated November 2022
+date: Updated December 2022
 bibliography: introducingR.bib
 output: pdf_document
 fontsize: 11pt
@@ -21,17 +21,17 @@ knitr::opts_chunk$set(comment = NA, prompt = TRUE)
 The purpose of these notes is to provide a quick introduction to R,
 particularly as a tool for fitting linear and generalized linear models.
 A PDF version is available <a href="introducingR.pdf">here</a>. The web 
-pages and PDF were created using <code>markdown</code> as explained in 
+pages and PDF were created using <code>rmarkdown</code> as explained in 
 the last section. You will find many applications in the computing logs 
 for the statistics courses on this site.</small></div>
 ```
 
 # 1 Introduction
 
-R is a powerful environment for statistical computing which runs on several 
+R is a powerful environment for statistical computing that runs on several 
 platforms. These notes are written specially for users running the Windows 
-version, but most of the material applies to the Mac and Linux versions as well.
-Following some bibliographic remarks and tips for getting started, 
+version, but most of the material applies to the macOS and Linux versions as 
+well. Following some bibliographic remarks and tips for getting started, 
 I describe reading and examining data, and fitting linear and generalized 
 linear models. I close with a few pointers and references on where to go 
 from here. I have tried to introduce key features of R as needed by 
@@ -40,13 +40,13 @@ altogether omit) discussion of some of the more powerful features of R
 as a programming language.
 
 
-## 1.1 The R Language and environment
+## 1.1 The R Language and Environment
 
 R was first written as a research project by Ross Ihaka and Robert Gentleman, 
-and is now under active development by a group of statisticians called 'the R 
-core team', with a home page at <https://www.r-project.org>.
+and is now under active development by a group of statisticians called "the R 
+core team", with a home page at <https://www.r-project.org>.
 
-R was designed to be 'not unlike' the S language developed by John Chambers and 
+R was designed to be "not unlike" the S language developed by John Chambers and 
 others at Bell Labs. A commercial version of S with additional features was 
 developed and marketed as S-Plus by Statistical Sciences, eventually becoming 
 part of TIBCO Spotfire. You can view R and S-Plus as alternative 
@@ -57,30 +57,30 @@ R is available free of charge and is distributed under the terms of the
 [Free Software Foundation](http://www.gnu.org/)'s [GNU General Public  License](
 http://www.gnu.org/licenses/gpl-3.0.html). 
 You can download the program from the [Comprehensive R Archive Network 
-(CRAN)](http://lib.stat.cmu.edu/R/CRAN/mirrors.html). Ready-to-run 'binaries' 
-are available for Windows, Mac OS, and Linux. The source code is also available 
+(CRAN)](http://lib.stat.cmu.edu/R/CRAN/mirrors.html). Ready-to-run binaries 
+are available for Linux, macOS, and Windows. The source code is also available 
 for download and can be compiled for other platforms.
 
 
 ## 1.2 Bibliographic Remarks
 
 S was first introduced by Becker and Chambers [-@beckerChambers1984] in what's 
-known as the 'brown' book. The new S language was described by Becker, Chambers 
-and Wilks [-@beckerChambersWilks1988] in the 'blue' book. Chambers and Hastie 
+known as the "brown" book. The new S language was described by Becker, Chambers 
+and Wilks [-@beckerChambersWilks1988] in the "blue" book. Chambers and Hastie 
 [-@chambersHastie1992] edited a book discussing statistical modeling in S, 
-called the 'white' book. The latest version of the S language is described by 
-@chambers1998 in the 'green' book, but R is largely an implementation of the 
+called the "white" book. The latest version of the S language is described by 
+@chambers1998 in the "green" book, but R is largely an implementation of the 
 versions documented in the blue and white books. Chamber's latest books, 
 @chambers2008 and @chambers2016, focus on programming with R.
 
-Venables and Ripley -@venablesRipley2002 have written an excellent book on 
+Venables and Ripley [-@venablesRipley2002] have written an excellent book on 
 Modern Applied Statistics with S-PLUS that is now in its fourth edition. The 
 latest edition is particularly useful to R users because the main text explains 
 differences between S-Plus and R where relevant. A companion volume called *S 
 Programming* appeared in 2000 and applies to both S-Plus and R 
 [@venablesRipley2000]. These authors have also made available in their website 
 an extensive collection of complements to their books, follow the links at 
-[MASS 4](http://www.stats.ox.ac.uk/pub/MASS4/).
+[MASS 4](https://www.stats.ox.ac.uk/pub/MASS4/).
 
 There is now an extensive and rapidly growing literature on R. Good 
 introductions include the books by @krauseOlson1997, @dalgaard2008, and 
@@ -93,14 +93,14 @@ reference on R graphics, @pinheiroBates2000, a book on mixed models, and
 analysis code used in S-Plus and R.) 
 
 Hadley Wickham has made a number of ground-breaking contributions to R that 
-deserve special mention.He is the author of the `ggplot2` package 
+deserve special mention. He is the author of the `ggplot2` package 
 [@wickham2016], a very popular graphics package that has brought to R the 
 grammar of graphics proposed by  @wilkinson2005. He has also contributed a 
 number of data-management packages, of which the most notable is `dplyr`, and 
 has advocated the use of "tidy" datasets. His approach to  data management is 
 explained in detail in @wickhamGrolemund2017, with its own website at 
 <https://www.tidyverse.org/>.  He has also written an advanced book on 
-programming R, now in its second edition (@wickham2019). You will find most of 
+programming R, now in its second edition [@wickham2019]. You will find most of 
 his work available online; follow the links in the list of references at the 
 end of this tutorial.  
 
@@ -111,8 +111,7 @@ other packages, and useful notes on *R installation and Administration*.
 More specialized documents include a draft of the *R Language Definition*, 
 a guide to *Writing R Extensions*, documentation  on *R Internals* including 
 coding standards, and finally the massive *R  Reference Index* (~3000 pages). 
-The online help facility is excellent. For additional references see the 
-annotated list at [R Books](https://www.r-project.org/doc/bib/R-books.html).
+The online help facility is excellent. 
 
 ```{=html}
 <p class="pull-right">Continue with <a href="gettingStarted" class="btn btn-default">
@@ -122,8 +121,8 @@ Getting Started</a></p>
 # 2 Getting Started
 
 Obviously the first thing you need to do is download a copy of R. This tutorial
-was created using version 4.0.3, released in October 2020. New releases occur every 
-six months or so. You will find the latest version and binaries for Windows, Mac OS X, 
+was updated using version 4.2.1, released in June 2022. New releases occur every 
+six months or so. You will find the latest version and binaries for Windows, macOS, 
 and Linux in the [Comprehensive R Archive Network](https://cran.r-project.org/). 
 Find the  mirror nearest you and follow the links. The Windows installer is fairly 
 easy to use and, after agreeing to the license terms, lets you choose which 
@@ -131,12 +130,12 @@ components you want to install. Additional packages can always be installed
 directly from R at a later time. 
 
 The next thing you should do is install R Studio, a nice Integrated Development 
-Environment (IDE) for R, that is available for Windows, Mac OS X, and Linux. 
+Environment (IDE) for R, that is also available for Linux, macOS and Windows.
 You can download the free open source edition of R Studio Desktop from 
 <https://rstudio.com/products/rstudio/>. Once the software is installed, it 
-will find and  integrate your R installation. 
+will find and integrate your R installation. 
 
-<img src="RStudioIDE.png" style="margin:auto"/>
+<img src="RStudioIDE.png" class="img-responsive img-center"/>
 \includegraphics[width=\textwidth]{RStudioIDE.png}
 
 The panel on the lower-left corner of the IDE shows the console, which is
@@ -144,7 +143,7 @@ described below.  Graphs and help will appear on the bottom right panel.
 The panel on the top left can be used to type an R script to be run later. 
 
 If you do not install R Studio, you can still run the R graphical user 
-interface (GUI). I recommend that you create a shorcut on the  desktop.
+interface (GUI). I recommend that you create a shortcut on the  desktop.
 When R starts you see a console. Graphs appear on a separate window.
 
 ## 2.1 The Console
@@ -203,20 +202,24 @@ log(0.3/(1 - 0.3))
 R also understands the relational operators `<=`, `<`, `==`, `>`, `>=` and `!=` 
 for less than or equal, less than, equal, greater than, greater than or equal, 
 and not equal. These can be used to create logical expressions that take values 
-`TRUE` and `FALSE` (or `T` and `F` for short). Logical expressions may be 
-combined with the logical operators `|` for OR and `&` for AND, as 
-shown further below.
+`TRUE` and `FALSE`. (Or `T` and `F` for short, but these abbreviations are not
+recommended because it is possible to assign other values to them.) 
+Logical expressions may be  combined with the logical operators `|` for OR and 
+`&` for AND, as shown further below.
 
 The results of a calculation may be assigned to a named object. The assignment 
 operator in R is `<-`, read as "gets", but by popular demand R now accepts the 
 equal sign as well, so `x <- 2` and `x = 2` both assign the value 2 to a 
-variable (technically an object) named `x`.
+variable (technically an object) named `x`. I prefer using `<-`, but you can
+use either. Note that `=` is also used for named arguments of functions.
+
 
 Typing a name prints its contents. The name `pi` is used for the constant 
 $\pi$. Thus,
 
 ```{r}
-s = pi/sqrt(3)
+s <- pi/sqrt(3)
+s
 ```
 
 assigns $\pi/\sqrt{3}$ to the variable `s` and prints its value.
@@ -298,8 +301,8 @@ the first element of each vector, and use shortcut evaluation; they are used
 mostly in writing R functions, and will not be discussed further.)
 
 ```{r}
-a = c(TRUE, TRUE, FALSE, FALSE)
-b = c(TRUE, FALSE, TRUE, FALSE)
+a <- c(TRUE, TRUE, FALSE, FALSE)
+b <- c(TRUE, FALSE, TRUE, FALSE)
 a & b
 ```
 
@@ -337,17 +340,17 @@ function creates a 3 by 4 matrix and fills it by columns with the numbers 1 to
 12:
 
 ```{r}
-M = matrix(1:12, 3, 4)
+M <- matrix(1:12, 3, 4)
 M
 ```
 
 The elements of a matrix may be addressed using the row and column subscripts 
-in square brackets, separated by a command. Thus, `M[1, 1]` is the first 
+in square brackets, separated by a comma. Thus, `M[1, 1]` is the first 
 element of `M` (in row 1 and column 1).
 
 A subscript may be left blank to select an entire row or column: `M[1,]` is the 
-first row, and `M[,1]` is the first column.  Any of the subscripts may be a 
-vector, so `M[1:2, 1:2]` is the upper-left 2 by 2 corner of `M`. Try it.
+first row, and `M[,1]` is the first column of `M`.  Any of the subscripts may be 
+a  vector, so `M[1:2, 1:2]` is the upper-left 2 by 2 corner of `M`. Try it.
 
 The number of rows and columns of a matrix are returned by the functions 
 `nrow()` and `ncol()`. To transpose a matrix use the function `t()`. The matrix 
@@ -366,20 +369,20 @@ in a nice shade of blue. Note that we are able to add the title to the current
 plot in a separate call.
 
 ```{r}
-z = seq(-3, 3, 0.1)
-d = dnorm(z)
+z <- seq(-3, 3, 0.1)
+d <- dnorm(z)
 ```
 
 ```{.r}
 > plot(z, d, type="l")
-> title("The Standard Normal Density", col.main="#3366cc")
+> title("The Standard Normal Density", col.main="#3366CC")
 ```
 
 ```{r include=FALSE}
 png(filename = "dnorm.png", width=350, height=300)
 par (mar=c(3,3,2,1), mgp=c(2,.7,0), tck=-.01)
 plot(z, d, type="l")
-title("The Standard Normal Density", col.main="#3366cc")
+title("The Standard Normal Density", col.main="#3366CC")
 dev.off()
 ```
 
@@ -402,7 +405,7 @@ discrete points. Note that R uses the equal sign to specify named arguments to
 a function.
 
 The `title()` function expects a character string with the title as the first 
-argument. We also specified the optional argument `col.main="#3366c"` 
+argument. We also specified the optional argument `col.main="#3366CC"` 
 to set the color of the title. Here I specified the red, green and blue 
 components of the color in hexadecimal notation; this particular choice 
 matches the headings on my website. There are also 657 named colors to choose 
@@ -439,7 +442,7 @@ c("red,"green","blue","white")`.
 
 To save a graph in R Studio click on the "Export" button on the graph window. 
 (In R make sure the focus is on the graph window and choose `File | Save as`, 
-from the menu.)  You can save as an Image or a PDF file. 
+from the menu.)  You can save as an image or a PDF file. 
 
 One of the image formats is `png`, which makes it easy to include R graphs in 
 web pages. R also supports `jpeg`, but I think `png` is better than `jpeg` for 
@@ -450,7 +453,7 @@ Alternatively, you can copy the graph to the clipboard by choosing "Clipboard".
 (In R select `File | Copy to clipboard`.) You get a choice of two formats: 
 bitmap and metafile. I recommend that you use the metafile format because it's 
 more flexible. You can then paste the graph into a word processing or 
-spreadsheet document. (In R you can also print the graph using `File | Print`).
+spreadsheet document. (In R you can also print the graph using `File | Print`.)
 
 *Exercise*: Simulate 20 observations from the regression model $Y = \alpha + 
 \beta x + e$ using the `x` vector generated above. Set $\alpha = 1$ and $\beta 
@@ -482,7 +485,7 @@ all character), the elements of a list may have different types. Here's a list
 with two components created using the function `list()`:
 
 ```{r}
-person = list(name="Jane", age=24)
+person <- list(name="Jane", age=24)
 ```
 
 Typing the name of the list prints all elements. 
@@ -501,10 +504,10 @@ person$age
 
 Individual elements of a list can also be accessed using their indices or their 
 names as subscripts. For example we can get the name using `person[1]` or 
-`person["name"]`. (You can use single or double square brackets depending on 
-whether you want a list with the name, which is what we did, or just the name, 
-which would require double brackets as in `person[[1]]` or `person[["name"]]`. 
-The distinction is not important at this point.)
+`person["name"]`. You can use single or double square brackets. If you use
+single brackets, as we did here, you get a list with the name. If you use
+double brackets you get just the name. Try `person[[1]]` or `person[["name"]]` 
+to see the difference.
 
 A **data frame** is essentially a rectangular array containing the values of 
 one or more variables for a set of units. The frame also contains the names of 
@@ -522,7 +525,7 @@ coded using the special symbol `NA`. Most statistical procedures, however, omit
 all missing values.
 
 Data frames can be created from vectors, matrices or lists using the function 
-data.frame, but more often than not one will read data from an external file, 
+`data.frame()`, but more often than not one will read data from an external file, 
 as shown in the next two sections.
 
 ## 3.2 Free-Format Input
@@ -533,7 +536,7 @@ names. Here's an excerpt of a data file containing information on three
 variables for 20 countries in Latin America:
   
 ```
-setting  effort   change
+              setting  effort   change
 Bolivia            46       0        1
 Brazil             74       0       10
 Chile              89      16       29
@@ -544,13 +547,13 @@ Venezuela          91       7       11
 
 This small dataset includes an index of social setting, an index of family 
 planning effort, and the percent decline in the crude birth rate between 1965 
-and 1975. The data are available on this website in a file called `effort.dat` 
-that includes a header with the variable names.
+and 1975. The data are available on my website in a file called `effort.dat` 
+that includes a header with the variable names.  
 
 R can read the data directly from the web:
   
 ```{r}
-fpe = read.table("https://grodri.github.io/datasets/effort.dat")
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat")
 ```
 
 The function used to read data frames is `read.table()`. The argument is a 
@@ -566,8 +569,8 @@ name or change R's working directory by calling `setwd()` with a string
 argument. Remember to double up your backward slashes (or use forward slashes 
 instead) when specifying paths in Windows.
 
-Here we assigned the data to an object called `fpe`. R's "official"" assignment 
-operator is `<-` but I prefer `=`. Yo print the object simply type its name
+Here we assigned the data to an object called `fpe`. To print the object you 
+simply type its name
 
 ```{r}
 fpe
@@ -591,7 +594,7 @@ argument `col.names` to assign variable names. This argument takes a vector of
 names. So, if our file did *not* have a header we could have used the command
 
 ```{.r}
-> fpe = read.table("noheader.dat", col.names=c("setting","effort","change"))
+> fpe <- read.table("noheader.dat", col.names=c("setting","effort","change"))
 ```
 
 Don't worry if this command doesn't fit in a line. R code can be continued 
@@ -601,7 +604,7 @@ parenthesis. R responds by prompting for more with the continuation symbol `+`
 instead of the usual prompt `>`.
 
 If your file does not have observation names, R will simply number the 
-observations from 1 to n. You can specify row names using `read.table()'s 
+observations from 1 to n. You can specify row names using `read.table()`'s 
 optional argument `row.names`, which works just like `col.names`; type 
 `?data.frame` for more information. (I should mention that in a "tidy" world 
 row names should just be another column, but classic R treats them as 
@@ -614,22 +617,22 @@ Thus, if our file did not have a header we could have read the data and then
 changed the default variable names using the `names()` function:
 
 ```{.r}
-> fpe = read.table("noheader.dat")
-> names(fpe) = c("setting","effort","change")
+> fpe <- read.table("noheader.dat")
+> names(fpe) <- c("setting","effort","change")
 ```
 
 *Technical Note*: If you have a background in other programming languages, you 
 may be surprised to see a function call on the left hand side of an assignment. 
-These are special 'replacement' functions in R. They extract an element of an 
+These are special *replacement* functions in R. They extract an element of an 
 object and then replace its value.
 
-In our example all three-variables were numeric. R will handle string variables 
-with no problem. If one of our variables was sex, coded `M` for males and `F` 
-for females, R would have created a *factor*, which is basically a categorical 
-variable that takes one of a finite set of values called *levels*. In Section 5 
-we will use a data frame with categorical variables to illustrate logistic 
-regression. Another way to generate factors is by grouping a numeric covariate. 
-An example appears in Section 4 below.
+In our example all three-variables were numeric. R will handle categorical 
+variables with no problem, including factors and string variables. In Section
+4 we will create a factor, basically a categorical variable that takes one 
+of a finite set of values called *levels*, by grouping a numeric covariate
+into categories. In Section 5 we will read a dataset that includes string 
+variables with values such as "low" and "high". These can be converted to
+factors or kept as character data.
 
 *Exercise*: Use a text editor to create a small file with the following three 
 lines:
@@ -655,7 +658,7 @@ a fairly common way to organize large datasets.
 The following call will read the data into a data frame and name the variables:
 
 ```{.r}
-> fpe = read.table("fixedformat.dat",  col.names = c("setting", "effort", 
+> fpe <- read.table("fixedformat.dat",  col.names = c("setting", "effort", 
 "change"), sep=c(1, 3, 5))
 ```
 
@@ -782,12 +785,12 @@ title("Scatterplot of Change by Effort", col.main="#3366CC")
 dev.off()
 ```
 
-<img src="scatterplot.png" style="width:600px; margin:auto"/>
+<img src="scatterplot.png" class="img-responsive img-center"/>
 \centerline{\includegraphics[width=0.6\textwidth,keepaspectratio]{scatterplot.png}}
 
 I used two optional arguments that work well together: `pch=21` selects a 
 special plotting symbol, in this case a circle, that can be colored and filled; 
-and `bf="gold" selects the fill color for the symbol. I left the perimeter 
+and `bf="gold"` selects the fill color for the symbol. I left the perimeter 
 black, but you can change this color with the `col` argument.
 
 To identify points in a scatterplot use the `identify()` function. Try the 
@@ -816,18 +819,18 @@ In our example try
 
 ```{.r}
 pairs(fpe)
-title("Scatterplots for Setting, Effort and Change", col.main="#3366cc")
+title("Scatterplots for Setting, Effort and Change", col.main="#3366CC")
 ```
 
 ```{r include = FALSE}
 png("pairs.png", width = 750)
 par (mar=c(3,3,2,1), mgp=c(2,.7,0), tck=-.01)
 pairs(fpe)
-title("Scatterplots for Setting, Effort and Change", col.main="#3366cc")
+title("Scatterplots for Setting, Effort and Change", col.main="#3366CC")
 dev.off()
 ```
 
-<img src="pairs.png" style="margin:auto"/>
+<img src="pairs.png" class="img-responsive img-center"/>
 \centerline{\includegraphics[width=\textwidth]{pairs.png}}
 
 The result is a 3 by 3 matrix of scatterplots, with the variable names down the 
@@ -881,7 +884,7 @@ Linear Models</a></p>
 Let us try some linear models, starting with multiple regression and analysis 
 of covariance models, and then moving on to models using regression splines. In 
 this section I will use the data read in Section 3, so make sure the `fpe` data 
-frame is still available.
+frame is still available (or read it again).
 
 ## 4.1 Fitting a Model
 
@@ -889,7 +892,7 @@ To fit an ordinary linear model with fertility change as the response and
 setting and effort as predictors, try
 
 ```{r}
-lmfit = lm( change ~ setting + effort, data = fpe )
+lmfit <- lm( change ~ setting + effort, data = fpe )
 ```
 
 Note first that `lm()` is a function, and we assign the result to an object 
@@ -900,8 +903,8 @@ The first argument to `lm()` is a model formula, which has the response on the
 left of the tilde `~` (read "is modeled as"), and a Wilkinson-Rogers model 
 specification formula on the right. R uses
 
-`+`	to combine elementary terms, as in `A + B`
-`:`	for interactions, as in `A:B`;
+`+`	to combine elementary terms, as in `A + B` \
+`:`	for interactions, as in `A:B`;\
 `*`	for both main effects and interactions, so `A * B = A + B + A:B`
 
 
@@ -967,17 +970,16 @@ plot(lmfit)
 dev.off()
 ```
 
-<img src="lmfit.png" style="margin:auto"/>
+<img src="lmfit.png" class="img-responsive img-center"/>
 \includegraphics[width=\textwidth,keepaspectratio]{lmfit.png}
 
 *Technical Note*: You may have noticed that we have used the function `plot()` 
 with all kinds of arguments: one or two variables, a data frame, and now a 
-linear model fit. In R jargon,  `plot()` is a generic function. It checks for 
+linear model fit. In R jargon,  `plot()` is a *generic* function. It checks for 
 the kind of object that you are plotting, and then calls the appropriate (more 
 specialized) function to do the work. There are actually many plot functions in 
-R, including `plot.data.frame()` and `plot.lm()`. For most purposes, the 
-generic function will do the right thing and you don't need to be concerned 
-about its inner workings.
+R, including `plot.data.frame()` and `plot.lm()`, and you can let R figure out
+which one to call.
 
 ## 4.3  Extracting Results
 
@@ -1001,7 +1003,7 @@ coef(lmfit)
 To get the residuals, use the `resids()` function (or the longer form 
 `residuals()`). There is a `type` argument that lets you choose several
 types of residuals, type `?residuals.lm` for information. I find more
-useful the `rstudent()` functions that returns standardized residuals:
+useful the `rstudent()` function that returns standardized residuals:
 
 
 ```{r}
@@ -1026,7 +1028,7 @@ also use categorical variables or *factors*. Let us group family planning
 effort into three categories:
 
 ```{r}
-fpe$effortg = cut(fpe$effort, breaks = c(-1, 4, 14, 100), 
+fpe$effortg <- cut(fpe$effort, breaks = c(-1, 4, 14, 100), 
   label = c("weak", "moderate", "strong"))
 ```
 
@@ -1039,7 +1041,7 @@ less than or equal to the *(i+1)*-st breakpoint go into the *i*-th category.
 Any values below the first breakpoint or above the last one are coded `NA` (a 
 special R code for missing values). If the labels are omitted, R generates a 
 suitable default of the form "(a, b]". By default the intervals are closed on 
-the right, so our intervals are  $\le 4$, 5 - 14, and 15+. To change this 
+the right, so our intervals are  $\le 4$, 5-14, and 15+. To change this 
 behavior, use the option `right = FALSE`. 
 
 Note that by specifying `fpe$effortg` on the left-hand-side, we have 
@@ -1048,13 +1050,13 @@ effectively added a new column to the `fpe` data frame.
 Try fitting the analysis of covariance model:
 
 ```{r}
-covfit = lm( change ~ setting + effortg, data = fpe)
+covfit <- lm( change ~ setting + effortg, data = fpe)
 covfit
 ```
 
 As you can see, `effortg` has been treated automatically as a factor, and R has 
 generated the necessary dummy variables for "moderate" and "strong" programs, 
-treating "weak"" as the reference cell.
+treating "weak" as the reference cell.
 
 *Choice of Contrasts*: R codes unordered factors using the reference cell or 
 "treatment contrast" method. The reference cell is always the first category 
@@ -1074,7 +1076,7 @@ Type `?anova` to learn more about this function.
 ## 4.5 Regression Splines
 
 The real power of R begins to shine when you consider some of the other 
-functions you can include in a model formula. First, you can include 
+functions you can include in a model formula. For starters, you can include 
 mathematical functions, for example `log(setting)` is a perfectly legal term in 
 a model formula. You don't have to create a variable representing the log of 
 setting and then use it, R will create it 'on the fly', so you can type
@@ -1093,11 +1095,11 @@ splines. First you must load the `splines` library.
 library(splines)
 ```
 
-This makes available the function `bs()~ to generate B-splines. For example the 
+This makes available the function `bs()` to generate B-splines. For example the 
 call
 
 ```{r}
-fpe$setting.bs = bs(fpe$setting, knots = c(66, 74, 84))
+fpe$setting.bs <- bs(fpe$setting, knots = c(66, 74, 84))
 ```
 
 will generate cubic B-splines with interior knots placed at 66, 74 and 84. This 
@@ -1114,7 +1116,7 @@ except for `degree`, which is always three. To generate a natural spline with
 five degrees of freedom, use the call
 
 ```{r}
-fpe$setting.ns = ns(fpe$setting, df=5)
+fpe$setting.ns <- ns(fpe$setting, df=5)
 ```
 
 Natural cubic splines are better behaved than ordinary splines at the extremes 
@@ -1127,7 +1129,7 @@ setting and effort with only one interior knot each, placed exactly at the
 median of each variable, try the following call:
 
 ```{r}
-splinefit = lm( change ~ ns(setting, knot=median(setting)) + 
+splinefit <- lm( change ~ ns(setting, knot=median(setting)) + 
   ns(effort, knot=median(effort)), data = fpe )
 ```
 
@@ -1146,8 +1148,8 @@ polynomial, but are much better behaved at the extremes.
 The `lm()` function has several additional parameters that we have not 
 discussed. These include
 
-`subset`	to restrict the analysis to a subset of the data
-`weights`	to do weighted least squares
+- `subset`	to restrict the analysis to a subset of the data
+- `weights`	to do weighted least squares
 
 and many others; see `help(lm)` for further details. The `args()` function 
 lists the arguments used by any function, in case you forget them. Try 
@@ -1169,6 +1171,7 @@ Compare these results with `coef(lmfit)`.
 <p class="pull-right">Continue with <a href="glms" class="btn btn-default">
 Generalized Linear Models</a></p>
 ```
+
 # 5 Generalized Linear Models
 
 Generalized linear models are just as easy to fit in R as ordinary linear 
@@ -1207,7 +1210,7 @@ name. If you want an alternative link, you must add a link argument. For
 example to do probits you use
 
 ```{.r}
-> glm( formula, family = binomial(link = probit))
+> glm(formula, family = binomial(link = probit))
 ```
 
 The last family on the list, `quasi`, is there to allow fitting user-defined 
@@ -1225,11 +1228,12 @@ use data excerpted below (and shown in full further below):
   ... lines omitted ...
 40-49      high        no       12    31
 ```
-The data are available from the datasets section of this website in a
-file called `cuse.dat`, and can be read directly from within R:
+
+The data are available on my website in a file called `cuse.dat`, and can 
+be read directly from within R:
 
 ```{r}
-cuse = read.table("https://grodri.github.io/datasets/cuse.dat", header 
+cuse <- read.table("https://grodri.github.io/datasets/cuse.dat", header 
 = TRUE)
 cuse
 ```
@@ -1239,11 +1243,21 @@ have been obvious that the first line in the file has the variable names. There
 are no row names specified, so the rows will be numbered from 1 to 16. I also 
 printed the data to make sure we got it alright.
 
+*Strings as Factors*. We encountered *factors*, or categorical variables that 
+take one of a discrete number of *levels*, in Section 4.4. Internally a factor 
+is represented as an integer vector with the levels as an attribute. Versions 
+of R prior to 4 would automatically read all strings as factors, but the default 
+in functions such as `read.table()` is now `StringAsFactor=FALSE`. Because we 
+kept the default, variables such as `education` have been read as strings, with 
+actual values `low` and `high`. Modeling functions treat strings pretty much 
+the same as factors, but if necessary one can convert a string variable to a 
+factor using the `as.factor()` function.
+
 Let us try a simple additive model where contraceptive use depends on age, 
 education and whether or not the woman wants more children:
 
 ```{r}
-lrfit = glm( cbind(using, notUsing) ~ age + education + wantsMore, 
+lrfit <- glm( cbind(using, notUsing) ~ age + education + wantsMore, 
   data = cuse, family = binomial)
 ```
 
@@ -1272,27 +1286,35 @@ the numbers using and not using contraception.
 Following the special symbol `~` that separates the response from the 
 predictors, we have a standard Wilkinson-Rogers model formula. In this case we 
 are specifying main effects of `age`, `education` and `wantsMore`. Because all 
-three predictors are categorical variables, they are treated automatically as 
-factors, as you can see by inspecting the results:
+three predictors are string vectors they are treated automatically as 
+categorical variables and represented using indicators for the categories, 
+as you can see by inspecting the results:
   
 ``` {r}
 lrfit
 ```
 
-Recall that R sorts the levels of a factor in alphabetical order. Because `<25` 
-comes before `25-29`, `30-39`, and `40-49`, it has been picked as the reference 
-cell for `age`. Similarly, `high` is the reference cell for `education` because 
-high comes alphabetically before `low`! Finally, R picked `no` as the base for 
-`wantsMore`.
+R sorts the levels of a factor or string variable in alphabetical order,
+Because `<25` comes before `25-29`, `30-39`, and `40-49`, it has been picked as 
+the reference  cell for `age`. Similarly, `high` is the reference cell for 
+`education` because  high comes alphabetically before `low`! Finally, R picked 
+`no` as the base for  `wantsMore`.
 
-If you are unhappy about these choices you can (1) use `relevel()` to change 
-the base category, or (2) define your own indicator variables. I will use the 
-second approach,  defining indicators for women with high education and women 
-who want no more children, both added to the `cuse` data frame:
+If you are unhappy about these choices, which are admittedly not ideal, you can
+
+(1) convert the variable to a factor and then change the reference cell using 
+`relevel()`; for example for education we could set "low" as the reference 
+by coding `cuse$education <- relevel(as.factor(cuse$education), "low")`, or
+
+(2) define your own indicator variables. 
+
+I will use the  second approach, defining indicators for women with 
+high education,  and for and women who want no more children, both 
+added to the `cuse` data frame:
 
 ```{r}
-cuse$noMore = cuse$wantsMore == "no"
-cuse$hiEduc = cuse$education == "high"
+cuse$noMore <- cuse$wantsMore == "no"
+cuse$hiEduc <- cuse$education == "high"
 ```
 
 Now try the model with these predictors
@@ -1302,8 +1324,17 @@ glm(cbind(using, notUsing) ~ age + hiEduc + noMore,
   data = cuse, family = binomial)
 ```
 
+Our indicator for high education is a Boolean variable that takes the
+values `FALSE` and `TRUE`. The corresponding coefficient is labeled
+`hiEducTRUE` to make it clear that it represents the case when the
+condition is true. (Alternatively, we could make the indicator take
+the values `0` and `1` by using `as.numeric()`, coding for example
+`cuse$hiEduc <- as.numeric(cuse$education == "high")`. In this case 
+the coefficient would be labeled just `hiEduc`.)
 
-The residual deviance of 29.92 on 10 d.f. is highly significant:
+
+The residual deviance of 29.92 on 10 d.f. is highly significant, so
+the additive model does not fit the data.
 
 ```{r}
 pchisq(29.92, 10, lower.tail = FALSE)
@@ -1313,12 +1344,11 @@ To obtain a p-value I specified `lower.tail` as `FALSE`. This is more accurate
 than computing the default lower tail and subtracting from one.
 
 So, we need a better model. One of my favorites for this dataset introduces an 
-interaction between age and wanting no more children,
-which is easily specified
+interaction between age and wanting no more children, which is easily specified:
 
 ```{r}
-lrfit2 = glm( cbind(using, notUsing) ~ age * noMore + hiEduc , data = cuse, 
-family = binomial)
+lrfit2 <- glm( cbind(using, notUsing) ~ age * noMore + hiEduc , data = cuse, 
+  family = binomial)
 lrfit2
 ```
 
@@ -1327,7 +1357,7 @@ sensible labels for them. The model's deviance of 12.63 on 7 d.f. is not
 significant at the conventional five per cent level, so we have no evidence 
 against this model.
 
-To obtain more detailed information about this fit try the `summary()` function:
+To obtain more detailed information about this fit, try the `summary()` function:
 
 ```{r}
 summary(lrfit2)
@@ -1343,8 +1373,7 @@ residual).
 The functions that can be used to extract results from the fit include
 
 - `residuals()` or `resid()`, for the deviance residuals
-- `fitted()` or `fitted.values()`, for the fitted values (estimated 
-probabilities)
+- `fitted()` or `fitted.values()`, for the fitted values (estimated probabilities)
 - `predict()`, for the linear predictor (estimated logits)
 - `coef()` or `coefficients()`, for the coefficients, and
 - `deviance()`, for the deviance.
@@ -1364,7 +1393,7 @@ If you want to modify a model you may consider using the special function
 could use
 
  ```{r}
- lrfit1 = update(lrfit2, ~ . - age:noMore)
+ lrfit1 <- update(lrfit2, ~ . - age:noMore)
  ```
  
 The first argument is the result of a fit, and the second an updating formula. 
@@ -1413,7 +1442,7 @@ remarkable features:
 * It works with generalized linear models, so it will do stepwise logistic 
 regression, or stepwise Poisson regression,
 
-* It understand hierarchical models, so it will only consider adding 
+* It understands hierarchical models, so it will only consider adding 
 interactions after including the corresponding main effects in the models, and
 
 * It understands terms involving more than one degree of freedom, so it it will 
@@ -1432,7 +1461,7 @@ AIC = –2 maximized log-likelihood + 2 number of parameters
 The procedure stops when the AIC criterion cannot be improved.
 
 In R all of this work is done by calling a couple of functions, `add1()` and 
-`drop1()~, that consider adding or dropping one term from a model. These 
+`drop1()`, that consider adding or dropping one term from a model. These 
 functions can be very useful in model selection, and both of them accept a 
 `test` argument just like `anova()`.
 
@@ -1465,7 +1494,7 @@ the additive model and search in a scope defined by all two-factor interactions.
 
 
 ```{r results = FALSE}
-search = step(lrfit1, ~.^2)
+search <- step(lrfit1, ~.^2)
 ```
 
 The `step()` function produces detailed trace output that I have supressed. The 
