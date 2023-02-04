@@ -10,7 +10,7 @@ statistical software tutorials on the web:
 The Stata Tutorial was written using `markstat`, a command for
 combining Markdown annotations and Stata code, described
 [here](https://grodri.github.io/markstat). Introducing R was
-written using `rmarkdown`.
+written using [`rmarkdown`](https://rmarkdown.rstudio.com/).
 
 You will also find the source code for the computing logs for 
 these courses:
@@ -21,7 +21,18 @@ these courses:
 
 The 62 logs show how to conduct statistical analyses using 
 Stata or R, with tabs to choose your statistical software,
-and were written using `markstat`.
+and were written using `markstat`. To reproduce these you
+need `markstat` and `bootstrap`, in addition to Stata and R,
+as explained [here](https://grodri.github.io/markstat/stata-r-tabs)
 
-Work in Progress: updating the computing logs for the course on
-Generalized Linear Models.
+I have now updated the Stata and R computing logs for the 
+course on Generalized Linear Models.
+
+- [GLMS Stata Logs](https://grodri.github.io/glms/stata)
+- [GLMS R Logs](https://grodri.github.io/glms/r)
+
+The 27 logs have separate Stata and R versions, so they can
+be reproduced independently. The Stata  logs use `markstat`, 
+and the scripts have extension `.stmd`. The R logs use
+ `rmarkdown`, and the scripts have extension `.Rmd`. 
+
