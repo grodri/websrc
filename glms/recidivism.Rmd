@@ -1,0 +1,180 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 7.A Piecewise Exponential Models
+
+This is an illustration of piecewise exponential survival models using
+individual-level data.
+We use R, relying on the functions `survSplit()` to create pseudo-observations 
+and `glm()` to fit the model using the Poisson equivalence. I also use the 
+package `dplyr` for data manipulation. The call to `survSplit()` now uses a
+formula interface. Hat tip to Jack Hoskins, who alerted me to this change 
+starting with version 2.40-1.
+
+### The Data
+
+The dataset we will consider is analyzed in Wooldridge (2002) and
+credited to Chung, Schmidt and Witte (1991). The data pertain to a
+random sample of convicts released from prison between July 1, 1977 and
+June 30, 1978. Of interest is the time until they return to prison. The
+information was collected retrospectively by looking at records in April
+1984, so the maximum length of observation is 81 months. The data are
+available from the Stata website in Stata format.
+
+```{r}
+library(haven)
+recid <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/recid.dta")
+nrow(recid)
+```
+
+The file has a censoring indicator, which we subtract from 1 to get a
+failure indicator. We also create an id variable and list observation
+number 9, which goes back to prison after 54 months.
+
+```{r}
+library(dplyr)
+recid <- mutate(recid, fail = 1 - cens, id = row_number())
+filter(recid, id == 9) |> select(id, durat, fail)
+```
+
+### Creating Pseudo-Observations
+
+To create pseudo-observations for survival analysis we will use the 
+`survSplit()` function in the `survival` package. We will split the data 
+into single-year intervals of duration, from 0-12 to 48-60, with an open-ended 
+category 60+. The function codes the interval variable using integer codes, 
+and we turn that into a factor for convenience. We calculate exposure time 
+for each episode as the difference between duration at the start and end.
+We list these data for individual 9 to illustrate how the episodes are created.
+
+```{r}
+library(survival)
+breaks <- seq(12, 60, by=12)
+recidx <- survSplit(Surv(durat, fail) ~ ., data = recid, 
+  cut = breaks, episode = "interval", start = "start")
+recidx <- mutate(recidx, exposure = durat - start,
+interval = factor(interval,  labels = 
+  paste("(", c(0,breaks), ",", c(breaks,100), "]", sep=""))) |>
+  rename(events = fail)
+nrow(recidx)
+filter(recidx, id==9) |> select(id,start,durat,interval, events, exposure)
+```
+
+The sample observation, which goes back to prison after 54 months, contributes
+five episodes or pseudo-observations; one each for years one to four, with
+12 months of exposure and no events, and another one for year five,  with
+6 months of exposure and one event.
+
+### A PWE Proportional Hazards Model
+
+We are now ready to fit a proportional hazards model with a piecewise
+exponential baseline where the hazard changes from year to year. We use
+the same model as Wooldridge(2002), involving ten predictors, all fixed
+covariates.
+I specify the offset using the `exposure()` option. I could, of course,
+take logs and then use the `offset()` option.]{.stata}
+
+```{r}
+fit <- glm(events~interval+workprg+priors+tserved+felon+alcohol+drugs+
+  black+married+educ+age+offset(log(exposure)), 
+  data=recidx, family=poisson)
+summary(fit)
+1 - exp(coef(fit)["felon"])
+```
+
+We see that the risk of recidivism is about the same in the first two years,
+but then decreases substantially with duration since release. At any given
+duration, felons have 25% lower risk of recidivism than non-felons with the
+same observed characteristics.
+Subjects imprisoned for alcohol or drug related offenses have much higher risk
+of recidivism, everything else being equal.
+
+### Survival Probabilities
+
+We now illustrate the calculation of survival probabilities, starting
+with the baseline hazard.
+[There are different ways to do these calculations in Stata, but I
+will proceed from first principles using Mata.]{.stata}.
+We will retrieve the coefficients, add the constant and the age effects
+to obtain the log hazard, exponentiate to obtain hazards, multiply by 12
+and sum to obtain the cumulative baseline hazard, and then exponentiate
+to obtain the baseline survival. This is not particularly meaningful as
+it would apply with all covariates set to zero, including age, which is
+measured in months.
+
+```{r}
+b <- coef(fit)
+h <- exp(b[1] + c(0, b[2:6]))
+H <- cumsum(12*h)
+S <- exp(-H)
+names(S)[1] <- names(H)[1] <- "interval(0,12])"
+S
+```
+
+We will now estimate the probability of staying out of prison for five
+years given average values of the predictors. First we calculate the mean of
+each predictor; we have to be careful to include only one observation per
+person, so we restrict the data to the first interval.
+
+```{r}
+xvars <- names(coef(fit))[7:16]
+pset <- filter(recidx, interval == "(0,12]") |>  select(xvars) 
+means <- colMeans(pset)
+```
+
+Now that we have the means, we multiply each by the corresponding
+coefficient to obtain the linear predictor `xb`, exponentiate to
+obtain a relative risk, multiply by the baseline hazard, and then
+calculated the predicted survival.
+
+```{r}
+xb <- sum(coef(fit)[xvars] * means)
+exp(-(H * exp(xb)))[5]
+```
+
+Thus, the probability of staying out of prison for five years for the average
+person is 65.7%.
+
+We now calculate this probability for felons and non-felons, keeping all other
+variables at their means. All we need to do is subtract from `xb` the coefficient
+of felon times the mean, which gives the linear predictor for a non-felon. We
+then add the coefficient of felon to get the linear predictor for a felon. In
+both cases the other variables stay at their means.
+
+```{r}
+xb0 <- xb - coef(fit)["felon"] * means["felon"]
+xb1 <- xb0 + coef(fit)["felon"]
+data.frame(non.felon = exp(-H[5]*exp(xb0)), felon= exp(-H[5]*exp(xb1)))
+```
+
+The predicted probability is 70.8% for felons and 63.2% for non-felons
+when all other characteristics are set to the mean, a difference of 7.6
+percentage points. This is a marginal effect at the means.
+
+An alternative calculation sets every person to be a felon or non-felon,
+leaving all other characteristics as they are, and then averages the
+predicted probability of surviving five years without returning to
+prison.
+
+```{r}
+xb0 <- as.matrix(mutate(pset, felon=0)) %*% coef(fit)[xvars]
+xb1 <- as.matrix(mutate(pset, felon=1)) %*% coef(fit)[xvars]
+data.frame(non.felon=mean(exp(-H[5] * exp(xb0))), 
+               felon=mean(exp(-H[5] * exp(xb1))))
+```
+
+The average probability of staying out of prison for five years is 68.6%
+for felons 61.2% for non-felons, a difference of 7.4 percentage points. This
+can be interpreted as an average marginal effect.
+
+### References
+
+Wooldridge, Jeffrey M. (2010). *Econometric Analysis of Cross Section and Panel
+Data*. 2nd Edition. Cambridge, Massachusetts: The MIT Press.
+
+Chung, C-F, P. Schmidt and A.D. Witte (1991). "Survival Analysis: A Survey".
+*Journal of Quantitative Criminology*,__7__:59-98.
+
+<small>Updated fall 2022</small>

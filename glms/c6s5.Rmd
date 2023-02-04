@@ -1,0 +1,340 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 6.5 Ordered Logit Models {#c6s5 .first}
+
+We now turn our attention to models for *ordered* categorical outcomes.
+Obviously the multinomial and sequential logit models can be applied as
+well, but they make no explicit use of the fact that the categories are
+ordered. The models considered here are specifically designed for
+ordered data.
+
+### Housing Conditions in Copenhagen
+
+We will use data from 1681 residents of twelve areas in Copenhagen,
+classified in terms of the type of housing that they have (tower blocks,
+apartments, atrium houses and terraced houses), their feeling of
+influence on apartment management (low, medium, high), their degree of
+contact with the neighbors (low, high), and their satisfaction with
+housing conditions (low, medium, high).
+
+The data are available in the datasets section and can be read directly
+from there.
+
+```{r}
+copen <- read.table("https://grodri.github.io/datasets/copen.dat")
+head(copen)
+```
+
+We will treat satisfaction as the outcome and type of housing, feeling
+of influence and contact with the neighbors as categorical predictors.
+The data are grouped as in the earlier example, but the layout is long 
+rather than wide. It corresponds to the way one would enter individual data, 
+with an additional colum n showing the number of observations in each group.
+
+It will be useful for comparison purposes to fit the saturated
+multinomial logit model, where each of the 24 combinations of housing
+type, influence and contact, has its own multinomial distribution.
+The group code can easily be generated from the observation number, and
+the easiest way to fit the model is to treat the code as a *factor*.
+
+```{r}
+copen$group <- rep(1:24,rep(3,24))
+library(nnet)
+msat <- multinom(satisfaction~as.factor(group), weights=n, data=copen)
+logLik(msat)
+```
+
+The log likelihood is -1715.7.
+You can verify that this is sum(n*log(p)), where n are the counts and p the
+proportions for the categories of satisfaction within each of the 24 groups.
+
+### The Proportional Odds Model
+
+The next task is to fit the additive ordered logit model from Table 6.5
+in the notes.
+I will use the `polr()` function in Venables and Rilpey's `MASS` package.
+Before fitting, I relevel the predictors so the reference cells are tower 
+residents, low influence, and low contact. I also make sure the outcome 
+categories are ordered from low to high satisfaction.
+
+```{r}
+library(MASS)
+library(dplyr)	
+copen <- mutate(copen,  
+  satisfaction = ordered(satisfaction, levels=c("low","medium","high")),
+  housing = relevel(as.factor(housing), "tower"),
+  influence = relevel(as.factor(influence),"low"),
+  contact = relevel(as.factor(contact),"low"))
+madd <- polr(satisfaction ~ housing + influence + contact, 
+  weights=n, data=copen)
+summary(madd)
+logLik(madd)
+lrtest <- function(small, large) {
+   data.frame(chisq=deviance(small)-deviance(large), df=large$edf-small$edf)
+}
+lrtest(madd, msat)
+```
+
+The log-likelihood is -1739.6, so the deviance for this model compared
+to the saturated multinomial model is 47.7 on 40 d.f.
+`polr()` calculates the deviance of this model as -2logL, efectively comparing it
+to a saturated individual model. I prefer to compare with a multinomial model
+which is saturated for the 24 groups, which is why I calculate a difference in
+deviances, the same as twice a difference in log likelihoods.
+
+The bottom line is that the deviance is not much more than one would
+expect when saving 40 parameters, so we have no evidence against the
+additive model. To be thorough, however, we will explore individual
+interactions just in case the deviance is concentrated on a few d.f.
+
+### Models with Interactions
+
+The next step is to explore two-factor interactions.
+
+```{r}
+mhi <- polr(satisfaction ~ housing*influence + contact, weights=n, data=copen)
+lrtest(mhi, msat)
+mhc <- polr(satisfaction ~ housing*contact + influence, weights=n, data=copen)
+lrtest(mhc, msat)
+mic <- polr(satisfaction ~ housing + influence*contact, weights=n, data=copen)
+lrtest(mic, msat)
+```
+
+The interaction between housing and influence reduces the deviance by
+about half, at the expense of only six d.f., so it is worth a second
+look. The interaction between housing and contact makes a much smaller
+dent, and the interaction between influence and contact adds practically
+nothing.
+
+We could also compare each of these models to the additive model, thus testing
+the interaction directly. We would get chisquareds of 22.51 on 6 d.f.,
+8.67 on 3 d.f. and 0.21 on 2 d.f.
+You can obtain these using our handy `lrtest()` function, try for example 
+`lrtest(madd, mhi)`, which we'll use below.
+
+Clearly the interaction to add is the first one, allowing the
+association between satisfaction with housing and a feeling of influence
+on management, net of contact with neighbors, to depend on the type of
+housing. [To examine parameter estimates we refit the model:]{.stata}
+
+```{r}
+summary(mhi)
+lrtest(mhi, msat)
+lrtest(madd, mhi)
+```
+
+The model deviance of 25.2 on 34 d.f. is not significant. To test for
+the interaction effect we compare this model with the additive model,
+obtaining a chi-squared statistic of 22.5 on six d.f., which is
+significant at the 0.001 level.
+
+At this point one might consider adding a second interaction. The
+obvious choice is to allow the association between satisfaction and
+contact with neighbors to depend on the type of housing. This would
+reduce the deviance by 7.95 at the expense of three d.f., a gain that
+just makes the conventional 5% cutoff with a p-value of 0.047. In the
+interest of simplicity, however, we will not pursue this addition.
+
+### Interpretation of Parameter Estimates
+
+The estimates indicate that respondents who have high contact with their
+neighbors are more satisfied than respondents with low contact who live
+in the same type of housing and have the same feeling of influence on
+management. The difference is estimated as 0.372 units in the underlying
+logistic scale. Dividing by the standard deviation of the (standard)
+logistic distribution we obtain
+
+```{r}
+coef(mhi)["contacthigh"]/(pi/sqrt(3))
+```
+So the difference in satisfaction between high and low contact with
+neighbors, among respondents with the same housing and influence, is
+0.205 standard deviations.
+
+Alternatively, we can exponentiate the coefficient:
+
+```{r}
+exp(coef(mhi)["contacthigh"])
+```
+
+The odds of reporting high satisfaction (relative to medium or low), are
+45% higher among tenants who have high contact with the neighbors
+than among tenants with low contact and have the same type of housing and
+influence. The odds of reporting medium or high satisfaction (as opposed
+to low) are also 45% higher in this comparison.
+
+Interpretation of the effects of housing type and influence requires
+taking into account the interaction effect. In the notes we describe
+differences by housing type among those who feel they have little
+influence in management, and the effects of influence in each type of
+housing.
+
+Let us do something a bit different here, and focus on the joint effects
+of housing and influence, combining the main effects and interactions.
+To do this I extract the linear predictor for each combination of
+housing and influence, and create a matrix suitable for a bar plot.
+I also divide the estimates by π/√3 to express them in standard
+deviation units in a latent satisfaction scale.
+
+```{r}
+xb <- model.matrix(mhi) %*% c(0,coef(mhi))
+indices<-(1:nrow(copen))[copen$satisfaction=="low" & copen$contact=="low"]
+XB <- matrix(xb[indices],3,4)
+colnames(XB) <- levels(copen$housing)
+rownames(XB) <- levels(copen$influence)
+trio <- c("#ddeeff","#80aae6", "#3366cc")
+png("fig63r.png", width=500, height=400)
+barplot(XB, beside=TRUE, col=trio, border=NA, 
+  main="Joint Effects of Housing and Influence", col.main="#3366cc")
+ dev.off()
+```
+
+![](fig63r.png){.img-responsive .center-block .r}
+
+Satisfaction with housing conditions is highest for residents of tower
+blocks who feel they have high influence, and lowest for residents of
+terraced houses with low influence. Satisfaction increases with
+influence in each type of housing, but the difference is largest for
+terraced houses and apartments than fower blocks and atrium houses.
+
+Another way to present the results is by focusing on the effects of
+influence within each type of housing or, alternatively, on the effects
+of housing type within each category of influence. All we need to do is
+substract the values for the reference cell of the control variable.
+These, of course, are in the first row or column of our matrix,
+
+```{r}
+quartet  <- c("#ddeeff", "#9dc1ee","#6593dd", "#3366cc")
+png("fig64r.png", width=750, height=400)
+par(mfrow=c(1,2))
+barplot(apply(XB,2,function(x)x-x[1]), beside=TRUE, col=trio, 
+  border=NA, main="Effects of Influence Given Housing", col.main="#3366cc")
+legend("toplef", fill=trio, legend=levels(copen$influence), bty="n")
+barplot(apply(XB, 1, function(x)x-x[1]), beside=TRUE, col=quartet, 
+  border=NA, main="Effects of Housing Given Influence", col.main="#3366cc")
+legend("bottomright", fill=quartet, legend=levels(copen$housing), bty="n")
+dev.off()
+```
+
+![](fig64r.png){.img-responsive .center-block .r}
+
+On the left panel we see more clearly the differences by influence in
+each type of housing. As noted above, having influence is good,
+particularly of you live in a terraced house or apartment. The right
+panel shows differences by type of housing within categories of
+influence. Tower residents are, generally speaking, more satisfied than
+residents of other types of housing, and the differences tend to be
+larger when influence is low.
+
+### Estimation of Probabilities
+
+Let us consider predicted probabilities.
+The `predict()` method can predict the outcome, with `type="class"` (the 
+default), or the probabilities, with `type="p"`. We'll use the latter.
+
+```{r}
+copen <- mutate(copen, fitted=predict(mhi, type="p"))
+```
+
+We'll look at these results for tower block dwellers with little
+influence and with high and low contact with neighbors. The first of
+these groups is, of course, the reference cell. I add the condition
+'satisfaction=="low"'
+to list the probabilities just once for each group:
+
+```{r}
+filter(copen, housing=="tower" & influence=="low" & satisfaction=="low") |>
+    select(housing, influence, contact, fitted)
+```
+
+We see that among tower tenants with low influence, those with high
+contact with their neighbors have a higher probability of high
+satisfaction and a lower probability of medium or low satisfaction, than
+those with low contact with the neighbors.
+
+It is instructive to reproduce these calculations "by hand". For the
+reference cell all we need are the cutpoints. Remember that the model
+predicts cumulative probabilities, which is why we difference the results.
+We write a helper function to facilitate converting cumulative logits to
+probabilities. The cutpoints or intercepts are stored in a slot named `zeta`.
+
+```{r}
+xb2p <- function(xb, cdf=plogis) { 
+  p <- cdf(as.numeric(xb))
+  data.frame(low=p[1], medium=p[2]-p[1], high=1-p[2])
+}
+xb2p(mhi$zeta)
+```
+
+For the group with high contact we need to *subtract* the corresponding
+coefficient from the cutpoints. The change of sign is needed to convert
+coefficients from the latent variable to the cumulative probability
+formulations (or from upper to lower tails).
+
+```{r}
+xb2p(mhi$zeta - coef(mhi)["contacthigh"])
+```
+
+Results agree exactly with the earlier predicted probabilities.
+
+### The Ordered Probit Model
+
+We now consider ordered probit models, starting with the additive model
+in Table 6.6:
+
+```{r}
+mpadd <- polr(satisfaction  ~ housing + influence + contact, weights=n,
+  method="probit", data=copen)
+summary(mpadd)
+logLik(mpadd)
+deviance(mpadd) - deviance(msat)
+```
+
+The model has a log-likelihood of -1739.8, a little bit below that of
+the additive ordered logit. This is also reflected in the slightly
+higher deviance.
+
+Next we add the housing by influence interaction
+
+```{r}
+mphi <- polr(satisfaction  ~ housing * influence + contact, weights=n,
+  method="probit", data=copen)
+ summary(mphi)
+logLik(mphi)
+deviance(mphi) - deviance(msat)
+coef(mphi)["contacthigh"]
+```
+
+We now have a log-likelihood of -1728.7 and a deviance of 25.9. which is
+almost indistinguishable from the corresponding ordered logit model.
+
+The estimates indicate that tenants with high contact with the neighbors
+are 0.228 standard deviations higher in the latent satisfaction scale
+than tenants with low contact, who live in the same type of housing and
+have the same feeling of influence in management. Recall that the
+comparable logit estimate was 0.205.
+
+The probabilities for the two groups compared earlier can be computed
+using `predict()`, as before, or more instructively "by hand" using
+our helper function with the normal c.d.f.
+
+```{r}
+xb2p(mphi$zeta, cdf=pnorm)
+xb2p(mphi$zeta - coef(mphi)["contacthigh"], cdf=pnorm)
+```
+
+The main thing to note here is that the results are very close to the
+corresponding predictions based on the ordered logit model.
+
+### The Proportional Hazards Model
+
+The third model mentioned in the lecture notes uses a complementary
+log-log link and has a proportional hazards interpretation.
+The model may be fit using `polr()` with `method="cloglog"`.
+Details are left as an exercise. We will learn more about proportional
+hazard models in the next chapter.
+
+<small>Updated fall 2022</small>

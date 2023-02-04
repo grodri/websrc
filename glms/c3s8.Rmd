@@ -1,0 +1,210 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 3.8 Regression Diagnostics for Binary Data
+
+We now consider regression diagnostics for binary data, focusing on
+logistic regression models. We will work with the additive model of
+contraceptive use by age, education, and desire for more children, which
+we know to be inadequate.
+
+### The Additive Model
+
+So here's the additive model for the contraceptive use data.
+
+```{r}
+library(haven)
+library(dplyr)
+cuse <- read_dta("https://grodri.github.io/datasets/cusew.dta")
+cuse <- mutate(cuse, age=as_factor(age), educ=as.numeric(educ), 
+  nomore=as.numeric(nomore), Y=cbind(users, nonusers) )
+m <- glm(Y ~ age + educ + nomore, family=binomial, data=cuse) 
+m
+```
+
+The additive model has a deviance of 29.92 on 10 d.f. when we define the
+saturated model in terms of the 16 groups of women.
+
+### Deviance and Pearson Residuals
+
+The `residuals()` function can be used to obtain (among other statistics)
+deviance and Pearson residuals, by specifying `type="deviance"` (the default), 
+or `type="pearson"`.
+These residuals are the signed square roots of the contributions to the model
+deviance or Pearson chi-squared statistic
+
+```{r}
+cuse <- mutate(cuse, pobs=users/(users+nonusers), pfit=fitted(m), 
+  dr=residuals(m, type="deviance"), pr = residuals(m, type="pearson"))
+```
+
+We will verify that if we square these residuals and sum them over the
+groups we get the deviance and Pearson chi-squared statistics.
+
+```{r}
+summarize(cuse, sdrsq=sum(dr^2), sprsq=sum(pr^2))
+```
+
+So the deviance is 29.9 as noted at the outset, and Pearson's
+chi-squared is 28.3. We now list all groups with squared deviance
+residuals above 3.84 (same as absolute values above 1.96).
+
+```{r}
+select(cuse, age, educ, nomore, pobs, pfit, pr, dr) |> 
+filter(dr^2 > 3.84)
+```
+
+We see that a substantial part of the deviance of 29.92 comes from three
+groups where the model overestimates the probability of using contraception:
+young women (under age 25 and aged 25-29) with upper primary or more, who want
+no  more children;  and women in their forties with lower primary or less who
+want more children.
+
+### Leverage and Influence
+
+Pregibon (1981) extended regression diagnostics to GLMs and introduced a
+weighted hat matrix, with diagonal elements representing the leverages.
+These are calculated using the `hatvalues(()` function).
+
+```{r}
+cuse <- mutate(cuse, lev=hatvalues(m))
+select(cuse, age, educ, nomore, pobs, pfit, lev) |>  
+  arrange(desc(lev)) |> head(3)
+```
+
+The three cells with potentially the largest influence in the fit are
+young women with upper primary or more who want more children, and older
+women with lower primary or less who want no more children.
+
+The elements of the hat matrix can be used to standardize Pearson (or
+deviance) residuals and to compute influence statistics. These are
+easily done "by hand". ([The `rs` option of `predict` after `logit`
+calculates standardized Pearson residuals.]{.stata})
+
+```{r}
+cuse <- mutate(cuse, ps = pr/sqrt(1-lev), ds = dr/sqrt(1-lev), sc=ps^2)
+select(cuse, age, educ, nomore, pobs, pfit, ps, ds, sc) |> 
+  arrange(desc(sc)) |> head(3)
+```
+
+We identify the same three observations picked up by the unstandardized
+residuals, but the absolute values are now closer to three, highlighting
+the lack of fit to these groups.
+
+Cook's distance can be calculated with `cook.distance()`. Don't be surprised
+if things like `residuals()` and `cook.distance()` look like the same functions
+used in linear models. Like many other R functions, these are *generic* functions.
+R looks at the class of the object and calls the appropriate function, depending 
+on whether the object is a linear model fitted by `lm()`, or a generalized 
+linear model fitted by `glm()`.
+
+```{r}
+cuse <- mutate(cuse, cook = cooks.distance(m))
+select(cuse, age, educ, nomore, pobs, pfit, lev, cook) |> 
+  arrange(desc(cook)) |> head(3)
+```
+
+The group with the highest leverage turned out to be also the most
+influential: women under 25, with upper primary or more, who want more
+children.
+
+### Goodness of Fit
+
+With grouped data, or even with individual data where the number of
+covariate patters is small, the deviance provides a goodness of fit
+test. But what if you have truly individual data with many covariate
+patterns?
+
+Hosmer and Lemeshow (1980) have proposed a goodness of fit for logistic
+regression models that can be used with individual data. The basic idea
+is to create groups using predicted probabilities, and then compare
+observed and fitted counts of successes and failures on those groups
+using a chi-squared statistic. Simulation has shown that with g groups
+the large sample distribution of the test statistic is approximately
+chi-squared with g-2 degrees of freedom.
+
+Let us apply this test to the Hosmer and Lemeshow low birth weight data,
+which happen to be available in the Stata website.
+
+```{r}
+lbw <- read_dta("https://www.stata-press.com/data/r13/lbw.dta")
+lbw <- mutate(lbw, race=as_factor(race))
+names(lbw)
+```
+
+The outcome is an indicator of low birth weight (< 2500 grams). The
+predictors include mother's age, her weight at the last menstrual
+period, and indicators of ethnicity, smoking during pregnancy, history
+of premature labor, history of hypertension, and presence of uterine
+irritability. Here's the fit
+
+```{r}
+model <- glm(low ~ age + lwt + race + smoke + ptl + ht + ui, 
+  family=binomial, data=lbw)
+model
+# count covariate patterns
+group_by(lbw, age, lwt, race, smoke, ptl, ht, ui) |> 
+  summarize(dummy=1) |> nrow()
+```
+
+The sample of 189 observations has 182 different covariate patterns, so
+we can't test goodness of fit this way.
+Instead we will compute predicted probabilities and create ten groups of approximately equal size by breaking at the deciles of the predicted probabilities. It pays to encapsulate the calculations in a function that can be reused:
+
+```{r}
+hosmer <- function(y, fv, groups=10, table=TRUE, type=2) {
+# A simple implementation of the Hosmer-Lemeshow test
+  q <- quantile(fv, seq(0,1,1/groups), type=type)
+  fv.g <- cut(fv, breaks=q, include.lowest=TRUE)
+  obs <- xtabs( ~ fv.g + y)
+  fit <- cbind( e.0 = tapply(1-fv, fv.g, sum), e.1 = tapply(fv, fv.g, sum))
+  if(table) print(cbind(obs,fit))  
+  chi2 <- sum((obs-fit)^2/fit)
+  pval <- pchisq(chi2, groups-2, lower.tail=FALSE)
+  data.frame(test="Hosmer-Lemeshow",groups=groups,chi.sq=chi2,pvalue=pval)
+}
+```
+
+We calculate quantiles, defaulting to deciles, and use these to create groups, taking care to include all values. We then tabulate the observed and predicted
+outcomes, using the sum of predicted probablities as the expected number of 
+"successes" in a group. There is an option to print a table of expected and 
+observed counts. The function returns the chi-squared statistic, the d.f., and 
+the p-value.
+
+Here's the result of applying our function with all the defaults:
+
+```{r}
+hosmer(lbw$low, fitted(model))
+```
+
+We get a Hosmer-Lemeshow chi-squared value of 9.65 on 8 d.f. with a
+p-value of 0.2904, and thus no evidence of lack of fit.
+
+Statistical packages differ in how they calculate quantiles. R implements 
+9 types; the default is 7 for compatibility with S and R < 2.0, but they 
+recommend type 8. Type `?quantile`' to learn more. We used type 2, the inverse 
+of the empirical distribution function with averaging at discontinuities, for 
+compatibility with Stata, but our function lets you try other types. A test 
+using R's recommended definition of deciles yields a chi-squared of 10.55 
+on the same 8 d.f., with a p-value of 0.2283.
+
+Paul Allison (2013) has noted that the Hosmer-Lemeshow test is sensitive to
+the number of groups used. He provides an example where a test with 10 groups
+yields a p-value just below 0.05, but working with 9 or 11 groups raises it to
+0.11 and 0.64 respectively. In this example the p-values are also quite
+different, but the conclusion does not change.
+
+### References
+
+Allison, P. (2013). Why I Don't Trust the Hosmer-Lemeshow Test for Logistic
+Regression. Online at <https://statisticalhorizons.com/hosmer-lemeshow/>.
+
+Hosmer D.W. and Lemeshow S. (1980) A goodness-of-fit test for the multiple
+logistic regression model. *Communications in Statistics*,__A10__:1043-1069.
+
+Pregibon, D. (1981) Logistic Regression Diagnostics. *The Annals of Statistics*,
+__9__(4): 705-724. [JSTOR](https://www.jstor.org/stable/2240841).
+
+<small>Updated fall 2022</small>

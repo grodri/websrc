@@ -1,0 +1,144 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 2.8 Analysis of Covariance Models {#c2s8 .first}
+
+We now consider models that include as predictors a continuous variable
+and a discrete factor, sometimes called *ancova* models.
+As usual, we read the data and group effort into categories, so we can
+run this unit by itself.
+
+```{r}
+library(dplyr)
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat")	
+fpe <- mutate(fpe, effort_g = cut(effort, breaks=c(min(effort), 5, 15, max(effort)),
+  right=FALSE, include.lowest=TRUE, labels=c("Weak","Moderate","Strong")))
+```
+
+Here's the model treating social setting as a covariate with a linear
+effect and program effort as a factor variable with three categories
+
+```{r}
+m2cg <- lm(change ~ setting + effort_g, data=fpe)
+summary(m2cg)
+```
+
+Compare the coefficients with Table 2.23 in the notes. Countries with
+strong programs show steeper fertility declines, on average 19 percentage
+points more, than countries with weak programs and the same social
+setting.
+
+To test the significance of the net effect of effort we use
+the `anova()` function.
+
+```{r}
+anova(m2cg)
+```
+
+We obtain an F-ratio of  14.1 on 2 and 16 d.f., a significant result.
+[The complete anova in Table 2.24 in the notes can be obtained from 
+the model with a linear effect of setting in [Section 2.4](c2s4) and
+the present model.]{stata}
+
+This analysis has adjusted for linear effects of setting, whereas the
+analysis in [Section 2.7](c2s7) adjusted for differences by setting
+grouped in three categories. As it happens, both analyses lead to
+similar estimates of the difference between strong and weak programs at
+the same level of setting.
+
+### Plotting Observed and Fitted
+
+Let us do Figure 2.5, a plot of change versus setting identifying the
+level of program effort corresponding to each point. I will also
+superimpose the three parallel lines corresponding to the fitted model.
+
+We call `fitted()` to calculate fitted values, use the levels of `effort_g` 
+to label the points, left-justified with a bit of space, and then plot the 
+fitted regression lines for each level of effort.
+
+```{r}
+library(ggplot2)
+fpe <- mutate(fpe, fitted=fitted(m2cg))
+png(file="fig25r.png", width=500, height=400)	
+ggplot(fpe, aes(setting, change, label=effort_g)) + geom_point() + 
+  geom_text(hjust="left", nudge_x=0.6, size=3) +
+  geom_line(data=group_by(fpe, effort_g), aes(setting, fitted, color=effort_g)) +
+  coord_cartesian(xlim=c(35, 95))
+dev.off()
+```
+
+![](fig25r.png){.img-responsive .center-block .r}
+
+### Adjusted and Unadjusted Means
+
+Let us turn to the comparison of adjusted and unadjusted declines in
+Table 2.26, a useful way to present regression results to a
+non-technical audience.
+
+```{r}
+b <- coef(m2cg)	
+fpe <- mutate(fpe, adj_change = 
+  b[1] + b[2]*72.1 + b[3]*(effort_g=="Moderate") + b[4]*(effort_g=="Strong") )
+```
+Next we tabulate our data by level of effort and summarize observed and
+adjusted change.
+
+```{r}
+group_by(fpe, effort_g) |> 
+  summarize(observed=mean(change), adjusted=mean(adj_change))
+```
+
+Countries with strong program average a 28% decline in fertility, but
+they also tend to have higher settings; we estimate a slightly smaller
+decline of about 26% at average social setting. The estimate is based on
+the model, which adjusts linearly for setting and assumes that the slope
+is the same at all levels of effort. The next step will be to examine
+this assumption.
+
+### The Assumption of Parallelism
+
+We will now allow the linear relationship between change and setting to
+vary with level of effort, by introducing an interaction between setting
+and the indicators of effort. Before we do that we center the index of
+social setting by subtracting the mean, a practice I highly recommend to
+simplify the interpretation of "main" effects when the model has
+interactions:
+
+```{r}
+fpe <- mutate(fpe, setting_c = setting - mean(setting))
+```
+
+We can now run the regression using
+
+```{r}
+m3cg <- lm(change ~ setting_c * effort_g, data = fpe)
+summary(m3cg)
+anova(m3cg)
+```
+
+Compare the parameter estimates with Table 2.27 in the notes. You also
+have all the information required to produce the hierarchical anova in
+Table 2.28.
+
+Because we centered setting, the coefficients for moderate and strong
+programs summarize differences by effort at mean setting, rather than at
+setting zero (which is well outside the range of the data). Thus,
+fertility decline averages 13 percentage points more under strong than
+under weak programs in countries with average social setting.
+
+The interaction terms can be used to compute how these differences vary
+as we move away from the mean. For example in countries which are ten
+points above the mean social setting, the strong versus weak difference
+is almost five percentage points more than at the mean. These
+differences, however, are not significant, as we can't reject the
+hypothesis that the three slopes are equal.
+
+*Exercise*. Plot the data and the regression lines implied by the model
+with an interaction between linear setting and level of effort. Note how
+the difference between strong and weak programs increases with social setting.
+The interaction is not significant, however, so we have no evidence that the
+lines are not in fact parallel.
+
+<small>Updated fall 2022</small>

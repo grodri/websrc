@@ -1,0 +1,63 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+# 2. Linear Models {#c2s1 .first}
+
+We start with the linear models in Chapter 2 of the lecture notes,
+showing how to use the
+`lm()` function in R
+to fit regression, analysis of variance, and analysis of covariance models.
+
+## 2.1 The Program Effort Data
+
+For a brief description of the program effort data see the lecture notes
+or point your browser to the datasets page.
+All datasets used in the course are in plain text format, and they are also
+available as Stata system files. Both formats can be read directly from the web.
+
+```{r}
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat")
+```
+
+The `read.table()` function produces a data frame, which we assign to `fpe`. 
+To make sure everything is alright we list the data by simply typing `fpe`,
+which invokes the `print()` method.
+
+```{r}
+fpe
+```
+
+As you can see, we have 20 observations on three variables:  social `setting`,
+family planning `effort`, and fertility `change`.
+The country names serve as row names. Tidy tools prefer a separate column,
+which you can create by typing `fpe$country = row.names(fpe)`.
+
+The next thing we want to do is plot the data for a closer look. The importance
+of becoming familiar with your data before undertaking sophisticated analyses
+cannot be over-emphasized. Let us create scatterplots of all pairs of variables,
+reproducing Figure 2.1 in the notes.
+
+The `pairs()` function in base R creates scatterplots of all pairs of variables.
+Obviously only numeric variables should be included, but that's not a problem 
+here, and we could just say `pairs(fpe)`. I think, however, that the plot is 
+easier to read if we use the same order as in the notes, which we can easily 
+do using the variable names as column subscripts. (Fans of `ggplot` might want
+to use `ggpairs` in the `GGally` package instead.)
+
+```{r}
+png(filename = "pairsr.png", width=500, height=400)
+pairs(fpe[, c("change","setting","effort")], 
+	main="Figure 2.1. Scatterplot Matrix")
+dev.off()
+```
+
+![](pairsr.png){.img-responsive .center-block .r}
+
+R graphs are displayed in the active graphics device. Here we opened a PNG
+device and drew the graph. If you are using R interactively via R Studio, you
+can also use `export` in the graphical user interface (GUI) to save the graph
+as PDF, or in a variety of image formats.
+
+<small>Updated fall 2022</small>

@@ -1,0 +1,134 @@
+
+## 2.9 Regression Diagnostics {#c2s9 .first}
+
+In this section we will be working with the additive analysis of
+covariance model of the previous section. As usual, we start by reading
+the data and recreating the variables we need. We then fit the model.
+
+```s
+	use https://grodri.github.io/datasets/effort, clear
+	recode effort (0/4=1 "Weak") (5/14=2 "Moderate") ///
+	  (15/max=3 "Strong"), gen(effort_g) label(effort_g)
+	 regress change setting i.effort_g
+```
+
+All of the diagnostic measures discussed in the lecture notes can be
+calculated in Stata and R, some in more than one way.
+
+### Residuals
+
+Let us start with the residuals.
+The easiest way to get them is as options of the `predict` command. 
+Specify the option `res` for the raw residuals, `rstand` for the standardized 
+residuals, and `rstud` for the studentized (or jackknifed) residuals.
+Let us obtain all three:
+
+```s
+	predict ri, res
+	predict si, rsta 
+	predict ti, rstu
+	label var ti "Jack-knifed residuals"
+```
+
+### Leverage and Influence
+
+To get the diagonal elements of the hat matrix and Cook's distance we use
+two more options of `predict`, `hat` and `cook`:
+
+```s
+	predict hii, hat
+	predict di, cook
+```
+
+We are now ready to print Table 2.29 in the notes.
+
+```s
+	list country ri si ti hii di, clean
+```
+
+Here is an easy way to find the cases highlighted in Table 2.29, those
+with standardized or jackknifed residuals greater than 2 in magnitude:
+
+```s
+	list country ri si ti hii di if abs(si) > 2 | abs(ti) > 2, clean
+```
+
+We will calculate the maximum acceptable leverage, which is *2p/n* in general,
+and then list the cases exceeding that value (if any).
+
+```s
+	scalar hiimax = 2*4/20
+	list country ri si ti hii di if hii > hiimax, clean 
+```
+
+We find that Haiti has a lot of leverage, but very little actual influence.
+Let us list the six most influential countries. I will do this
+by sorting the  data in *descending* order of influence and 
+then listing the first six.  Stata's regular `sort` command sorts only in 
+*ascending* order, but `gsort` can do descending if you specify `-di`.
+
+```s
+	gsort -di
+	list country di in 1/6, clean
+```
+
+Turns out that the D.R., Cuba, and Ecuador are fairly influential observations.
+Try refitting the model without the D.R. to verify what I say on page 57 of the
+lecture notes.
+
+### Residual Plots
+
+On to plots! Here is the standard residual plot in Figure 2.6, produced using
+the following code:
+
+```s
+	predict yhat
+	label var yhat "Fitted values"
+	scatter ti yhat, title("Figure 2.6: Residual Plot for Ancova Model") 
+	graph export fig26.png, width(500) replace
+```
+
+![](fig26.png){.img-responsive .center-block .stata}
+
+*Exercise*: Can you label the points corresponding to Cuba, the D.R. and Ecuador?
+
+### Q-Q Plots
+
+Now for that lovely Q-Q-plot in Figure 2.7 of the notes:
+
+```s
+	qnorm ti, title("Figure 2.7: Q-Q Plot for Residuals of Ancova Model")
+	graph export fig27.png, width(500) replace
+```
+
+![](fig27.png){.img-responsive .center-block .stata}
+
+Wasn't that easy?
+Stata's `qnorm` evaluates the inverse normal cdf at *i/(n+1)* rather than at 
+*(i-3/8)/(n+1/4)* or some of the other approximations discussed in the notes.
+Of course you can use any approximation you want, albeit at the expense of
+additional work.
+
+### Filliben
+
+I will illustrate the general idea by calculating Filliben's approximation to
+the expected order statistics or rankits.
+I will use Stata's built-in system variables `_n` for the observation number 
+and `_N` for the number of cases.
+
+```s
+	sort ti
+	gen pi = (_n-0.3175)/(_N+0.365)
+	replace pi = 1-0.5^(1/_N) if _n == 1
+	replace pi = 0.5^(1/_N)   if _n ==_N 
+	gen filliben = invnorm(pi)
+	corr ti si filliben          
+```
+
+The correlation is 0.9518 using jack-knifed residuals, and 0.9655 using
+standardized residuals. The latter is the value quoted in the notes.
+Both are above (if barely) the minimum correlation of 0.95 needed to
+accept normality. I will skip the graph because it looks almost identical
+to the one produced above.
+
+<small>Updated fall 2022</small>

@@ -1,0 +1,118 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 8.3 Longitudinal Logits
+
+We will work with a dataset on union membership used in the Stata manuals
+and in my own paper on intra-class correlation for binary data. This is
+a subsample of the National Longitudinal Survey of Youth (NLSY) and has
+union membership information from 1970-88 for 4,434 women aged 14-26 in
+1968. The data are available in the Stata website
+
+```{r}
+library(haven)
+union = read_dta("https://www.stata-press.com/data/r14/union.dta")
+```
+
+### Logits
+
+Here is a logit model
+
+```{r}
+logit <- glm(union ~ age + grade + not_smsa + south*year, 
+  data = union, family = binomial)
+summary(logit)
+```
+
+### Fixed-Effects
+
+Let us try a fixed-effects model first.
+My preferred way to fit this model in R is using the `clogit` function in 
+the `survival` package, which requires specifying the group as `strata()`. 
+Alternatives are the packages `gplm` and `glmmML`. I was able to verify that 
+I get exactly the same results with `glmmboot()` in the `glmmML` package.
+
+```{r}
+library(survival)
+fe <- clogit(union ~ age + grade + not_smsa + south*year + 
+  strata(idcode) , data=union)
+summary(fe)
+library(dplyr)
+group_by(union, idcode) |> summarize(v=var(union)) |>
+  filter(v > 0) |> nrow()
+```
+
+It is not immediately obvious from the output that we lost 62% of our sample,
+down from 4434 to 1690 women.
+The 2744 drop outs are women who didn't have variation in union membership over
+time. We will compare the estimates later.
+
+### Random-Effects
+
+Now we fit a random-effects model:
+
+I tried to fit this model using `glmer()` in the `lme4` package, but it didn't 
+converge, either with the default settings, which uses the Laplace approximation, 
+nor when I specified 8-point adaptive quadrature. In all fairness this is a tough 
+dataset, with very high intra-woman correlation.
+
+I then tried the `glmmML()` function in the package of the same name, for which 
+the default family is binomial, and it converged using the default Laplace 
+approximation, as well as 8-point and 12-point Gauss-Hermite quadrature. 
+(Adaptive Gauss Hermite is not available.)
+
+```{r}
+library(glmmML)
+model = union ~ age + grade + not_smsa + south*year
+re1  <- glmmML(model, cluster = idcode, data = union)
+re8  <- glmmML(model, cluster = idcode, data = union, method = "ghq")
+re12 <- glmmML(model, cluster = idcode, data = union, method = "ghq", n.points=12)
+cbind(coef(re1), coef(re8), coef(re12))
+re12
+```		  
+
+### Comparisons
+
+Here's a table comparing the estimates for logit, random and fixed-effects models.
+
+```{r}
+cbind(coef(logit), coef(re12), c(NA,coef(fe)))
+```
+
+The main change is in the coefficient of `not_smsa`. You might think
+this indicates something wrong with the logit and random-effects models,
+but note that only women who have *moved* between standard metropolitan
+statistical areas and other places contribute to the fixed-effects
+estimate. It seems reasonable to believe that these women differ from
+the rest.
+
+The random-effect coefficients are larger in magnitude than the ordinary
+logit coefficients. This is almost always the case. Omission of the
+random effect biases the coefficients towards zero.
+
+### Intra-class Correlation
+
+The scale parameter of 2.395, available as `sigma`, can be translated into
+an intraclass correlation as shown below:
+
+```{r}
+re12$sigma^2/(re12$sigma^2 + pi^2/3)
+```
+
+The intra-class correlation of 0.636 in the random-effects model indicates
+a high correlation between a woman's propensity to be a union member
+in different years, after controlling for education and residence.
+
+My paper with Elo in the Stata journal shows how this coefficient can be
+interpreted in terms of an odds ratio, and translated into measures of manifest
+correlation such as Pearson's r and Yule's Q.
+
+### Reference
+
+Rodríguez, G. and Elo, I. (2003). "Intra-class correlation in random-effects
+models for binary data". *The Stata Journal*,__3__(1):32-46.
+<https://journals.sagepub.com/doi/pdf/10.1177/1536867X0300300102>
+
+<small>Updated fall 2022</small>

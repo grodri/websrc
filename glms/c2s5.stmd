@@ -1,0 +1,51 @@
+
+## 2.5 Multiple Regression {#c2s5 .first}
+
+Let us try a multiple regression model with linear and additive effects
+of social setting and program effort:
+
+```s
+	use https://grodri.github.io/datasets/effort, clear
+	quietly regress change setting // redone for comparison
+	scalar rss1 = e(rss)
+	regress change setting effort
+	scalar rss2 = e(rss)
+```
+
+Compare the coefficients with Table 2.5 and the anova with Table 2.7.
+
+The estimates suggest that fertility decline increases with social setting,
+about a quarter of a percentage point per point of setting, when we compare
+countries with the same effort. Similarly, fertility declines about one
+percentage point more per point of program effort, when we compare countries
+with the same social setting.
+
+It is important to keep in mind that both conclusions are based on the model,
+which assumes linearity and additivity. In fact, we can't really compare
+countries which differ exactly by one point in effort and have the same setting,
+so goodness of fit will be a central concern. You may also note that I try to
+avoid using causal language when dealing with observational data.
+
+The F-test for a linear effect of effort after taking into account setting is
+18.5 on 1 and 17 d.f., and is the same as the square of the t-statistic of 4.3
+on 17 d.f.
+
+### Partial Correlations
+
+Make sure you know how to reproduce the hierarchical anova in Table 2.8
+in the notes. Let us check the partial correlation listed on page 27.
+Here's the coefficient for change and effort controlling for setting:
+
+```s
+	display "partial correlation = " sqrt((rss1 - rss2)/rss1)
+```
+
+We could have use Stata's `pcor`, which you may want to try to verify our
+result, but this shows more clearly what we are doing.
+
+Squaring this coefficient we find that program effort is associated with
+about half the variation left in fertility decline in countries with the
+same social setting. (It is common to say "after controlling for social
+setting", but of course we are not able to manipulate any of these variables.)
+
+<small>Updated fall 2022</small>

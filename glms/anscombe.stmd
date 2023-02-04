@@ -1,0 +1,136 @@
+
+## The Anscombe Datasets {#anscmobe .first}
+
+Anscombe (1973) has a nice example where he uses a constructed dataset
+to emphasize the importance of using graphs in statistical analysis. The
+data are available in the Stata bookstore as part of the support for
+Kohler and Kreuter's *Data Analysis Using Stata*, and can be read using
+the following command
+
+```s
+	use http://www.stata-press.com/data/kk/anscombe, clear
+```
+
+There are 8 variables, representing four pairings of an outcome and a
+predictor. All sets have 11 observations, the same mean of x (9) and y
+(7.5), the same fitted regression line (y = 3 + 0.5 x), the same
+regression and residual sum of squares and therefore [the same multiple
+R-squared of 0.67]{.em}. But they represent very different situations,
+as you will see by clicking on each dataset:
+
+<ul class="nav nav-tabs">
+<li role="presentation" class="active"><a href="#ds1" data-toggle="tab">Dataset 1</a></li>
+<li role="presentation"><a href="#ds2"  data-toggle="tab">Dataset 2</a></li>
+<li role="presentation"><a href="#ds3" data-toggle="tab">Dataset 3</a></li>
+<li role="presentation"><a href="#ds4" data-toggle="tab">Dataset 4</a></li>
+</ul>
+
+::: tab-content
+::: {#ds1 .tab-pane .active}
+<p></p>
+
+Here's the first dataset:
+
+![](anscombe1.png){.img-responsive .center-block}
+
+This is an example of *pure error*, the observations appear randomly
+distributed around the regression line, just as the model assumes.
+
+For the record, here is the regression output.
+
+```s
+	regress y1 x1
+```
+
+The graph was produced using these commands:
+
+```s
+	twoway scatter y1 x1 || lfit y1 x1, title("Pure Error") ytitle(y1) legend(off)
+	graph export anscombe1.png, width(500) replace
+```
+:::
+
+::: {#ds2 .tab-pane}
+<p></p>
+
+The data in the second dataset look very different, even though the
+R-squared is the same:
+
+![](anscombe2.png){.img-responsive .center-block}
+
+This is an example of *lack of fit*, the model assumes a linear
+relationship but the dependence is in fact curvilinear. If you add a
+quadratic term you can increase R-squared to 1.
+
+For the record this is the regression for the second pair:
+
+```s
+	reg y2 x2
+```
+
+The graph was produced using these commands:
+
+```s
+	twoway scatter y2 x2 || lfit y2 x2, title("Lack of Fit") ytitle(y2) legend(off)
+	graph export anscombe2.png, width(500) replace
+```
+:::
+
+::: {#ds3 .tab-pane}
+<p></p>
+
+Here is the graph for the third pair. R-squared is still 0.666, but the
+data look very different.
+
+![](anscombe3.png){.img-responsive .center-block}
+
+This is an example of *an outlier*, the model specifies a linear
+relationship and all points but one follow it exactly. You could
+increase R-squared to 1 by omitting the outlier.
+
+Here's the regression output
+
+```s
+	reg y3 x3
+```
+
+The graph was produced using these commands:
+
+```s
+	twoway scatter y3 x3 || lfit y2 x2, title("An Outlier") ytitle(y3) legend(off)
+	graph export anscombe3.png, width(500) replace
+```
+:::
+
+::: {#ds4 .tab-pane}
+<p></p>
+
+Finally, this is the graph for the fourth dataset. Once again, R-squared
+is 0.666, the same as in the previous three cases:
+
+![](anscombe4.png){.img-responsive .center-block}
+
+This is an example of *influence*, the slope is completely determined by
+the observation on the right. Without that observation we would not be
+able to estimate the regression, as all x's would be the same.
+
+Here's the regression:
+
+```s
+	reg y4 x4
+```
+
+The graph was produced using these commands:
+
+```s
+	twoway scatter y4 x4 || lfit y4 x4, title("Influence") ytitle(y4) legend(off) 
+	graph export anscombe4.png, width(500) replace
+```
+:::
+:::
+
+#### Reference
+Anscombe, F. J. (1973). Graphs in Statistical Analysis. *The
+American Statistician*, **27**(1):17-21. If you have access to JSTOR you
+can get the article at the following link:
+<https://www.jstor.org/stable/2682899>.

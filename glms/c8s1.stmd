@@ -1,0 +1,121 @@
+
+# 8. Models for Clustered and Panel Data {#c8s1 .first}
+
+We will illustrate the analysis of clustered or panel data using three
+examples, two dealing with linear models and one with logits models.
+The linear model examples use clustered school data on IQ and language
+ability, and longitudinal state-level data on Aid to Families with
+Dependent Children (AFDC).
+
+## 8.1 Clustered Linear Model
+
+Snijders and Boskers (1999), *Multilevel Analysis*, have data for 2287
+8-th grade children in 131 schools in The Netherlands.
+The data are available in the datasets section in a Stata file and can
+be read directly from Stata or R.
+
+```s
+	use https://grodri.github.io/datasets/snijders, clear
+```
+
+### OLS
+
+We are interested in the relationship between verbal IQ and the score in
+a language test. OLS gives a highly significant coefficient of 2.65 with
+a standard error of 0.072:
+
+```s
+	reg langpost iq_verb	
+```
+
+### Random Effects
+
+We consider the fact that the observations are probably correlated
+within each school, because of unobserved school characteristics that
+affect language scores (such as a good language teacher).
+
+```s
+	xtreg langpost iq_verb, i(schoolnr) mle
+	mat re = e(b)
+```
+
+The coefficient of verbal IQ is 2.49 with a standard error of 0.071 and
+is still highly significant. We have also learned that the language
+scores *are* correlated within schools; in fact, 18.3% of the variation
+in language scores net of verbal IQ can be attributed to the schools
+(the rest is due to the pupils). The intra-class correlation is highly
+significant, as shown by a test statistic of 225.9 (conservatively a
+chi-squared with one d.f.)
+
+### Fixed-Effects (Within)
+
+We now consider a fixed-effects model that allows for the possibility of
+a correlation between unobserved school characteristics and verbal IQ
+(the school with the good teacher attracts brighter students):
+
+```s
+	xtreg langpost iq_verb, i(schoolnr) fe
+	mat fe = e(b)
+```
+
+Our results are very robust, the coefficient of verbal IQ is 2.41 with a
+standard error of 0.071. We feel pretty confident in our conclusions.
+Note that we get an F-test for school effects, which are highly
+significant.
+
+### Group Means (Between)
+
+If you are not deterred by the ecological fallacy you could have analyzed group means.
+Stata makes this easy with the `be` option. We also use the `wls` option to weight 
+schools in proportion to the number of students.
+
+```s
+	xtreg langpost iq_verb, i(schoolnr) be wls
+	mat be = e(b)
+```
+
+This gives a much larger coefficient of 3.90, albeit with a larger
+standard error of 0.334. Clearly working with aggregate data would
+overestimate the relationship between verbal IQ and language scores.
+Note that the random-effects estimate is between the within and between
+estimates (it always is).
+
+### Comparison of Estimates
+
+The following figure shows the data, separate regression fits for each of
+the 131 schools, and the between, within, and random-effects estimates.
+First we run the school regressions
+
+```s
+	statsby a=_b[_cons] b=_b[iq_verb], by(schoolnr) saving(schoolregs, replace) ///
+	: regress langpost iq_verb
+	sort schoolnr
+	merge m:1 schoolnr using schoolregs
+	drop _merge
+	gen yhat = a + b * iq_verb
+	sort schoolnr iq_verb
+```
+
+And then we do the combined plot
+
+```s
+	local lw lw(medthick)
+	twoway scatter langpost iq_verb, msymbol(circle_hollow) mcolor(gs10) ///
+	 || line yhat iq_verb, connect(ascending) color(gs10) ///
+	 || function y = fe[1,2] + fe[1,1]*x, range(5 15) lcolor(blue) `lw'  ///
+	 || function y = re[1,2] + re[1,1]*x, range(5 15) lcolor(green) `lw' ///
+	 || function y = be[1,2] + be[1,1]*x, range(5 15) lcolor(red) `lw' legend(off) ///
+	 title(Language Scores and Verbal IQ) xtitle(Verbal IQ) ytitle(Language Score)
+	graph export snijders.png, width(500) replace		
+```
+
+![](snijders.png){.img-responsive .center-block .stata}
+
+The red line is the between-groups estimate, which overstates the
+relationship between IQ and language scores. The blue line is the
+within-groups or fixed-effects estimator. The green line is the
+random-effects estimator, which is always an average of the within and
+between, and in this case comes very close to the within-group
+estimator.
+
+<small>Updated fall 2022</small>

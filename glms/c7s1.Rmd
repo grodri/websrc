@@ -1,0 +1,243 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+# 7. Survival Models {#c7s1 .first}
+
+Stata and R have extensive facilities for fitting survival models. In this
+course we discuss only the use of Poisson regression to fit piece-wise
+exponential survival models. For other approaches see the [survival analysis
+course](/survival).
+
+## 7.5 Infant and Child Mortality in Colombia
+
+The datasets section has the original tabulation of children by sex,
+cohort, age and survival status (dead or still alive at interview), as
+analyzed by Somoza (1980).
+
+As is often the case with survival data, a good part of the effort is to
+convert the raw data into the counts of events and exposure needed for
+analysis.
+
+### Data Preparation
+
+We will start by reading the data and collapsing over sex, and will then
+compute events and exposure to reproduce Table 7.1 in the lecture notes.
+
+```{r}
+library(haven)
+library(dplyr)
+somoza <- read_dta("https://grodri.github.io/datasets/somoza.dta") |>
+  mutate(age=as_factor(age), cohort=as_factor(cohort))
+somoza <- group_by(somoza, cohort, age) |> 
+  summarize(deaths=sum(dead), survivors=sum(alive))
+```
+
+We take advantage of the fact that the data have been grouped by `cohort'.
+We compute the number who start each age as the total number of cases
+minus the number of deaths and survivors in all subsequent intervals.
+We add the width of the age interval in month, and then compute exposure 
+as the number who start minus half the number who die or at alive in that
+age intervals, dividing by 12 to express exposure in years. Finally we 
+drop age 5-10 years.
+
+```{r}
+somoza <- mutate(somoza, 
+  start = sum(deaths+survivors) - c(0, cumsum(deaths+survivors)[-8]),
+  width = c(1,2,3,6,12,36,60,NA)[as.numeric(age)],       
+  exposure = width * (start -0.5*(deaths+survivors))/12) |>
+filter(as.numeric(age) <= 7)
+```
+
+We then list the results, which coincide  with Table 7.1 in the notes.
+
+```{r}
+library(tibble) # to format exposure for printing
+select(somoza, cohort, age, deaths, exposure) |>
+  mutate(exposure = num(exposure, digits=1))
+```
+
+Table 7.1 is also available as a Stata file called `somoza2.dta` in the
+datasets section.
+
+### Offset and Predictors
+
+In preparation for modeling, let us calculate the logarithm of exposure
+time, to be used as an *offset*.
+
+```{r}
+somoza <- mutate(somoza, os=log(exposure))
+```
+
+### Exponential Survival
+
+Let us fit the null model, which is equivalent to a simple exponential
+survival model.
+
+```{r}
+mexp <- glm(deaths ~ 1, offset=os, family=poisson, data=somoza)
+summary(mexp)
+```
+
+Note the astronomical deviance. The estimate of the constant happens to
+be the log of the overall mortality rate. Let's verify this fact
+
+```{r}
+exp(coef(mexp))
+data.frame("observed.rate"= sum(somoza$deaths)/sum(somoza$exposure))
+```
+
+We have an overall mortality rate of 18.4 deaths per thousand
+child-years of exposure.
+
+### Three Exponentials
+
+On to the one-factor models. We start with the cohort model, which is
+equivalent to a separate exponential survival model for each cohort:
+
+```{r}
+mcoh <- glm(deaths ~ cohort, offset=os, family=poisson, data=somoza)
+summary(mcoh)
+exp(coef(mcoh)[-1])
+```
+
+Compare these results with the gross effect estimates in Table 7.3. Note
+that the hazard rate declined 26% between the 1941-59 and 1960-67
+cohorts, but appears to have increased almost 8% for the 1968-76 cohort
+compared to the 1941-59 cohort. (We will return to this issue.)
+
+The extremely large deviance shows that this model does not provide a
+reasonable description of the data. It is, however, better than the
+model where all cohorts follow the same exponential survival curve, as
+evidenced by the model chi-squared or the Wald test.
+
+```{r}
+anova(mexp, mcoh)
+wald <- function(model, pattern) {
+	indices = grep(pattern, names(coef(model)))
+	b <- coef(model)[indices]
+	V <- vcov(model)[indices, indices]
+	data.frame(wald=t(b) %*% solve(V) %*% b)
+}	
+wald(mcoh, "cohort")
+```
+
+Both tests are highly significant, indicating that overall mortality
+rates are not the same across cohorts.
+
+### Piece-Wise Exponential Survival
+
+Now we consider the age model, where the hazard depends on the age of
+the child:
+
+```{r}
+mage <- glm(deaths ~ age, offset=os, family=poisson, data=somoza)
+summary(mage)
+exp(coef(mage)[-1])
+```
+
+The age model is equivalent to a piece-wise exponential survival model
+with no cohort effects. Compare the results with the gross effects in
+Table 7.3. Note the dramatic decrease in risk with age. At age one the
+risk of death is only 5% of what it was in the first month of life.
+
+This model still doesn't fit the data, as evidenced by the deviance or
+goodness of fit chi-squared. It is, however, a remarkable improvement
+over the null, as indicated by the model chi-squared or the Wald test,
+
+```{r}
+anova(mexp, mage)
+wald(mage, "age")
+```
+
+You can see why demographers prefer age-specific mortality rates :)
+
+### The Proportional Hazards Model
+
+Now on to the additive model with main effects of age and cohort, which
+is equivalent to a proportional hazards model:
+
+```{r}
+mphaz <-  glm(deaths ~ age + cohort, offset=os, family=poisson, data=somoza)
+summary(mphaz)
+exp(coef(mphaz)[-1])
+```
+Note that this model fits reasonably well, with a deviance of 6.18 on 12
+d.f., so the assumption of proportional hazards is consistent with the data.
+
+Compare the results with the net effect estimates in Table 7.3, and note
+that the anomaly with the youngest cohort has dissappeared. The
+estimates now indicate a steady decline in mortality across cohorts.
+Taking the 1941-59 cohort as a baseline, mortality at every age from
+zero to ten was 28% lower for the 1960-67 cohort and 36% lower for the
+more recent 1968-76 cohort. Can you explain why this trend did not
+emerge until we controlled for age? *Hint*: the survey was conducted in
+1976.
+
+Here's a likelihood ratio test for the cohort effect adjusted for age.
+Note that we compare the age model with the additive model that has age
+and cohort. That is followed by the Wald test.
+
+```{r}
+anova(mage, mphaz)
+wald(mphaz, "cohort")
+```
+
+The cohort differences within age groups are highly significant.
+
+### Estimating Survival Probabilities
+
+Let us calculate the fitted life table shown in Table 7.4 of the lecture
+notes.
+
+The `predict()` function returns the predicted number of events, 
+so we divide by exposure to obtain a predicted rate.
+we then calculate the cumulative hazard as a cumulative sum of the hazard 
+times the width of the intervals in years. Finally we exponentiate
+minus the cumulative hazard to obtain the survival function.
+
+```{r}
+surv <- ungroup(somoza) |> 
+  mutate(rate = fitted(mphaz)/exposure,
+    cumhaz = cumsum(rate*width)/12,
+    survival = exp(-cumhaz)) |>
+select(age, cohort, survival)
+```
+
+The last thing to do is print our handy work.
+I will pivot the dataset to print a two-way table of survival probabilities.
+
+```{r}
+library(tidyr)
+pivot_wider(surv, names_from="cohort", values_from="survival")
+```
+
+We see that the probability of surviving to age one increased from 89.3%
+to 92.2% and then to 93.2% across cohorts. The complement of the
+probability of surviving to age one is known as the infant mortality
+rate (although it is a probability, not a rate) and is usually expressed
+per thousand births; it declined from 106.7 to 78.3 to 67.5 across
+cohorts.
+
+### Other Methods
+
+For another example of piecewise exponential survival, this time applied
+to recidivism and using individual rather than group data, and illustrating
+the creating of person-year files, see [this page](recidivism).
+
+Our software is able to fit some of the parametric models discussed
+in the bibliographic notes, such as the Weibull model. It also has
+non-parametric methods, including procedures for calculating
+Kaplan-Meier estimates and for fitting Cox regression models by partial
+likelihood. Finally, the data management facilities include facilities
+for generating person-year files. For more information see the
+[survival course](/survival) pages.
+
+### References
+
+Somoza, J.L. (1980). "Illustrative Analysis: Infant and Child Mortality
+in Colombia." *WFS Scientific Reports*, Number 10. Scanned version
+[here](https://wfs.dhsprogram.com/WFS-SR/ISI-WFS_SR-10_Samoza_1980_Illustrative%20Analysis%20-%20Infant%20and%20Child%20Mortality%20in%20Colombia.pdf)
+
+<small>Updated fall 2022</small>

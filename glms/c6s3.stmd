@@ -1,0 +1,61 @@
+
+## 6.3 The Conditional Logit Model {#c6s3 .first}
+
+Stata and R are also able to fit the more general McFadden conditional logit
+model discussed in the notes, a random-utility model where the expected
+utility of a choice may depend on characteristics of the alternatives,
+characteristics of the people making the choices, and variables which
+are specific to a combination of person and alternative, for example
+distance to a cinema. The special case where all predictors are
+individual characteristics is the multinomial logit model of the
+previous section.
+
+Stata 10 introduced the `asclogit` command, short for
+[a]{.underline}lternative [s]{.underline}pecific
+[c]{.underline}onditional logit, which greatly simplified fitting this
+model. The model can also be fit, albeit with a bit more work, using
+Stata's `clogit` command, which is designed for matched case-control or
+fixed-effects logit models, and was the only choice in earlier versions.
+
+We provide a brief illustration using the contraceptive choice data.
+Here we don't have any alternative-specific variables, but you'll see
+how they could be added. The first step is to expand the dataset so we
+have one record for each combination of individual and alternative. In
+our example the 3 women aged 15-19 who are sterilized become 3 records,
+one for sterilization, one for other methods and one for no method,
+which a dummy variable indicating that the first one of these was
+chosen. This structure is what makes posible adding alternative-specific
+predictors. We start by reading the data, adding `age` and `agesq`, creating 
+an id, expanding the data to represent each individual and alternative, and 
+then coding the alternatives available and the one chosen.
+
+```s
+	use https://grodri.github.io/datasets/elsalvador1985, clear
+	gen age = 12.5 + 5*ageg
+	gen agesq = age^2
+	gen id = _n
+	expand 3
+	sort id
+	by id: gen chosen = cuse == _n 
+	by id: replace cuse = _n
+```
+
+To fit the model we specify the dummy variable indicating the choice as
+outcome, followed by the predictors that vary by alternative, of which
+we have none. The predictors that vary only by individual, in our case
+age and age squared, are specified using the `casevars()` option. The
+structure of the data is defined using two options, `case()` specifies a
+variable identifying each individual and
+[`alt`]{.underline}`ernatives()` specifies a variable identifying the
+alternatives. The reference or base alternative is specified using the
+[`base`]{.underline}`alternative()` option. 
+
+```s
+	asclogit chosen [fw=cases], case(id) casevars(age agesq) ///
+	  alternatives(cuse) basealternative(3)
+```
+
+As you can see, the results are identical to those obtained using the
+`mlogit` command.
+
+<small>Updated fall 2022</small>

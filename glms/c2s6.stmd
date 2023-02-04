@@ -1,0 +1,130 @@
+
+## 2.6 One-Way Analysis of Variance {#c2s6 .first}
+
+Let us read the data again, and then group social setting into three categories:
+< 70, 70-79 and 80+.
+
+First we will make a copy, which I'll call `setting_g` for social
+setting grouped. (Everyone has their own conventions for naming
+variables. I try to keep variable names short, lowercase, and hopefully
+not too cryptic. Because we are just starting I will emphasize the 'not
+too cryptic' part, otherwise I might have used `ssg`. Stata allows
+variable names to have up to 32 characters, but most commands print only
+12, so it is best to stick to a maximum of 12.)
+
+```s
+	use https://grodri.github.io/datasets/effort, clear
+	generate setting_g = setting
+```
+
+Then we recode it into categories <70, 70-79, and 80+, thus creating a
+discrete *factor* with three levels.
+
+```s
+	recode setting_g min/69=1 70/79=2 80/max=3
+```
+
+It might be good idea to label the new variable and its categories. I
+will define a new set of labels called `setting_g` and assign it to the
+values of the variable. The names of the variable and the label don't
+have to be the same. For example one could have a label called `yesno`
+assigned to the values of all variables that take "Yes" and "No"
+values. In this case it makes sense to use the same name.
+
+```s
+	label var setting_g "Social Setting (Grouped)
+	label define setting_g 1 "Low" 2 "Medium" 3 "High"
+	label values setting_g setting_g
+```
+
+By the way one can shorten this process using options of the `recode` command 
+as shown in [Section 2.7](c2s7) in this log, but I think it's good to see all 
+the steps once.
+
+Let us look at the mean response by level of social setting
+
+```s
+	tabulate setting_g, summarize(change)
+```
+
+We observe substantially more fertility decline in countries with higher
+setting, but only a small difference between the low and medium
+categories.
+
+### A One-Factor Model
+
+Stata has an `anova` command that can fit linear models with discrete
+factors as predictors. We will use `regress` instead, to emphasize that
+all these models are in fact regression models. This will help us along
+when we move on to logit and Poisson models, which no longer make this
+distinction.
+
+To handle a categorical variable in a regression model we need indicators
+for all the categories except one, usually called the reference cell.
+Stata 11 introduced *factor variables*, a powerful way to specify main
+effects and interactions in regression models, and Stata 13 improved the
+labeling of the results, so there's really no need to "roll your own"
+anymore. For learning purposes, however, we will show below how you would
+go about doing that. First, however, we run the model using `i.setting_g`
+to specify that we want indicator variables for setting grouped. Stata
+automatically picks the lowest code as the reference cell.
+
+```s
+	regress change i.setting_g
+```
+
+Fertility declined, on average, 16 percentage points more in countries
+with high setting than in countries with low setting. Compare the parameter
+estimates with the values in Table 2.11 and the anova with Table 2.12 in the notes.
+
+You can verify that the constant is the average decline in low setting countries,
+and the coefficients for medium and high are the differences between medium and
+low, and between high and low; in other words, differences with respect to the
+omitted category.
+
+Just for the record, this is how you could get exactly the same results by
+creating indicators for medium and high setting:
+
+```
+gen setting_med  = setting_g==2 // or setting >= 70 & setting < 80
+gen setting_high = setting_g==3 // or setting >= 80 & !missing(setting)
+regress change setting_med setting_high
+```
+
+We could have coded the conditions in terms of the original variable as
+shown in the comments above, with exactly the same result. I probably
+would have used that approach if the dummies were called `setting70to79`
+and `setting80plus`.
+
+### The F-Test
+
+Stata has a `test` command that can be used to test one or more terms
+in a model. With factor variables you are better off using the `testparm`
+command, which automatically finds the terms involving a factor. Here's
+the F test for the indicators of setting. The result is, of course, the same 
+as in the anova table: the differences by setting are significant at the 
+one-percent level.
+
+```s
+	testparm i.setting_g
+```
+
+As the output shows, Stata names the coefficients of a factor variable
+using the number of the level followed by a dot and the name of the
+factor, as in `2.setting_g`. You could reproduce this F-test using the
+command `test 2.setting_g 3.setting_g`, which works fine because these
+are terms (single variables) in the model.
+
+On a related matter, Stata stores the coefficients in a matrix called
+`e(b)`, and you can list them using `mat list e(b)`. This is how you can
+find the names of the coefficients representing factor variables.
+
+The F-test of 6.97 on 2 and 17 d.f. tells us that the differences between the
+social setting categories are much larger than one would expect by chance if all
+experienced the same decline in fertility.
+
+*Exercise*: Obtain the parameter estimates and anova table for the model
+with family planning effort grouped into three categories: 0-4, 5-14 and
+15+, labelled weak, moderate and strong.
+
+<small>Updated fall 2022</small>

@@ -1,0 +1,139 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 2.6 One-Way Analysis of Variance {#c2s6 .first}
+
+Let us read the data again, and then group social setting into three categories:
+< 70, 70-79 and 80+.
+
+We will use the `dplyr` package for data manipulation, so make sure you have
+installed it. 
+To recode setting we will use `mutate()` with the function `cut()`, which 
+takes as  arguments the original variable and a set of cutpoints or "breaks", here 
+the minimum (23), 70, 80, and the maximum (91). By default, the cutpoint itself is 
+included in the lower category, so the intervals are closed on the right, as in 
+(70,80], but we want the opposite, as in [70,80), so we specify `right=FALSE`. 
+To make sure we include the highest cutpoint in the last category we specify 
+`include.lowest=TRUE`. (I know, this option can be confusing; by default it 
+will include the lowest cutpoint in the first category, as the name suggests, 
+but having specified that `right` is false, it will actually include the 
+highest cutpoint in the last category.)
+
+R generates labels for the categories, and you should probably accept them at 
+first to ensure that the grouping was done as intended, but I'll call the 
+categories "low", medium", and "high", for consistency with the notes. We also
+add this variable to the data frame.
+
+```{r}
+library(dplyr)
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat")
+fpe <- mutate(fpe, setting.g = cut(setting, 
+  breaks=c(min(setting), 70, 80, max(setting)), 
+  right=FALSE, include.lowest=TRUE, labels=c("Low", "Medium", "High")))
+```
+
+To verify the grouping we need to split the data by categories of social setting 
+and compute the range of setting in each group. 
+
+```{r}
+group_by(fpe, setting.g) |> summarize(bot=min(setting), top=max(setting))
+```
+
+Here `group_by()` splits `fpe` by categories of `setting.g`. The pipe operator `|>`
+passes the result to `summarize()`, which computes the min and max of `setting`.
+We see that the ranges included in each category are 35-68, 70-77 and 83-91, so 
+obviously the cut was correct. We can use the same approach to compute the average 
+fertility decline in each category of social setting:
+
+Let us look at the mean response by level of social setting
+
+```{r}
+group_by(fpe, setting.g) |> summarize(change = mean(change))
+```
+
+We observe substantially more fertility decline in countries with higher
+setting, but only a small difference between the low and medium
+categories.
+
+### A One-Factor Model
+
+To fit a linear model treating social setting as a factor we simply use the 
+categorical variable in the model formula. R will automatically create dummy 
+variables for each category other than the first.
+
+```{r}
+m1g <- lm(change ~ setting.g, data=fpe)
+summary(m1g)
+anova(m1g)
+```
+
+Fertility declined, on average, 16 percentage points more in countries
+with high setting than in countries with low setting. Compare the parameter
+estimates with the values in Table 2.11 and the anova with Table 2.12 in the notes.
+
+You can verify that the constant is the average decline in low setting countries,
+and the coefficients for medium and high are the differences between medium and
+low, and between high and low; in other words, differences with respect to the
+omitted category.
+
+We could, of course, compute the dummy variables "by hand", with the same results. 
+Below I use `as.numeric()` to coerce a logical expression to take the values 1 and 0, 
+otherwise the coefficients would have names like `settingMediumTRUE`.
+
+```
+fpe <- mutate(fpe, settingMedium = as.numeric(setting.g=="Medium"), 
+  settingHigh=as.numeric(setting.g=="High"))
+lm(change ~ settingMedium + settingHigh, data=fpe)
+```
+
+Using the factor notation is not only simpler but tells R that the terms belong together.
+
+### The F-Test
+
+The t-statistics produced by `summary()` compare each category to the reference 
+cell. To obtain an overall test of the significance of social setting we need to 
+compare the models with and without setting. This can be done using the `anova()` 
+function:
+
+```{r}
+anova(m1g)
+```
+
+The F-test of 6.97 on 2 and 17 d.f. tells us that the differences between the
+social setting categories are much larger than one would expect by chance if all
+experienced the same decline in fertility.
+
+It may be instructive to calculate the test "by hand" using the residual sum of 
+squares for the null model and the model treating setting as a factor:
+
+```{r}
+rss <- function(lm) sum(residuals(lm)^2)
+m0 <- lm(change ~ 1, data=fpe)
+((rss(m0)-rss(m1g))/2)/(rss(m1g)/df.residual(m1g))
+```
+
+We obtain the same 6.97 on 2 and 17 d.f.
+We can also compute the test from the coefficients as their variance-covariance 
+matrix, as shown on page 32 of the notes. We do this using `coef()` to extract 
+the coefficients and `vcov()` for their variance-covariance matrix, using -1 to 
+exclude the constant:
+
+```{r}
+b = coef(m1g)[-1]
+V = vcov(m1g)[-1,-1]
+W = t(b) %*% solve(V) %*% b
+c(W, W/2)
+```
+
+We obtain a Wald statistic of 13.94 on 2 d.f. in agreement with the notes. Dividing 
+by 2 we obtain, once again, an F statistic of 6.92 on 2 and 17 d.f. Recall that 
+the Wald statistic is asymptotically chi-squared, whereas under normality the F 
+statistic has an F distribution.
+
+*Exercise*: Obtain the parameter estimates and anova table for the model
+with family planning effort grouped into three categories: 0-4, 5-14 and
+15+, labelled weak, moderate and strong.
+
+<small>Updated fall 2022</small>

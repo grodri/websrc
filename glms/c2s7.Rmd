@@ -1,0 +1,153 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 2.7 Two-Way Analysis of Variance {#c2s7 .first}
+
+We start by reading the data and recreating setting in groups.
+
+```{r}
+library(dplyr)
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat") |>
+  mutate(setting_g = cut(setting, breaks=c(min(setting),70,80,max(setting)),
+  right=FALSE, include.lowest=TRUE, labels=c("Low","Medium","High")))	
+```
+
+Let us now create a copy of program effort and group it into categories
+0-4, 5-14 and 15+. We'll call the variable `effort_g` for effort in groups.
+
+```{r}
+fpe <- mutate(fpe, effort_g = cut(effort, breaks=c(min(effort), 5, 15, max(effort)),
+  right=FALSE, include.lowest=TRUE, labels=c("Weak","Moderate","Strong")))
+```
+
+Here's a table showing steeper declines in countries with strong
+programs, with a smaller difference between weak and moderate:
+
+```{r}
+group_by(fpe, effort_g) |> summarize(change = mean(change))
+```
+
+### An Additive Model
+
+Let us fit a model treating both setting and effort as factor variables,
+with weak programs in low settings as the reference cell
+
+```{r}
+m2g <- lm(change ~ setting_g + effort_g, data = fpe)
+summary(m2g)
+anova(m2g)
+```
+
+Compare these estimates with the results in Table 2.15 and the anova
+with Table 2.16 in the lecture notes.
+
+Countries with strong family planning programs show steeper declines
+than countries with weak programs at the same level of social setting,
+on average 21 percentage points more.
+
+This statement is based on the assumption of additivity, namely that the
+difference in outcomes across categories of program effort is the same
+at every level of setting. We will test this assumption [below](#2wayi).
+
+As you can see the differences in fertility change by level of effort,
+among countries with the same level of setting are significant, with an
+F-ratio of 11.5 on 2 and 15 d.f.
+
+### Fitted Values
+
+Let us reproduce Table 2.17 in the notes, showing fitted means by grouped
+setting and effort. I will use
+`fitted()` to generate fitted values, and then `summarize()` them
+by the two relevant factors
+
+```{r}
+library(tidyr)
+fpe <- mutate(fpe, fitted = fitted(m2g)) 
+group_by(fpe, setting_g, effort_g) |> summarize(fitted = mean(fitted)) |>
+	pivot_wider(names_from=effort_g, values_from=fitted)
+```
+
+Can you get the missing cell in the upper right corner? How about the
+margins, can you get those values?
+
+### A Two-Factor Interaction
+
+Let us now consider a model with an interaction between social setting
+and program effort, so differences in fertility decline by effort will
+vary by setting.
+
+In R we use a colon `:` to indicate an interaction term, and an asterisk
+`*` to include main effects and interactions, so `A*B` is equivalent to
+`A + B + A:B`.
+
+```{r}
+m2gi <- lm(change ~ setting_g*effort_g, data=fpe)
+summary(m2gi)
+```
+
+Oops, our software dropped a term. Why? Because there are no countries with
+strong programs in low settings, so we have only eight groups, but are
+trying to represent their means using nine parameters, which is
+obviously one too many. Fortunately this doesn't affect testing.
+
+```{r}
+anova(m2gi)
+```
+
+We have no evidence that the differences by effort vary with social
+setting, with an F just below 1 on 3 and 12 d.f.
+
+This makes the issue of interpreting parameters moot, but it may be
+worth noting briefly the problems caused by the empty cell. As things
+stand, the coefficient of moderate effort compares moderate with weak at
+low setting, but the coefficient of strong effort compares strong with
+weak at high setting. (Table 2.20 in the notes may help see this point.
+When the term for high and strong is dropped, the only difference
+between weak and strong programs at high setting is the coefficient of
+strong.)
+
+The parametrization I like best for this problem combines the main
+effects of effort with the interactions, so we obtain differences
+between strong and weak, and between moderate and weak programs, at each
+level of setting. This allows us to omit the difference between strong
+and weak programs at low setting, which is the one we can't identify.
+Try the specification below
+
+```
+lm( change ~ setting_g + effort_g:setting_g, data=fpe)
+```
+
+### Dummy Variables
+
+You could have obtained the same results in this unit using dummy variables.
+For the record, this is how you might build the dummies and fit the models.
+For the additive model we need just four indicators, two for each factor.
+In R I make sure the dummies are numeric, not boolean, otherwise the
+coefficient would have names like `effortStrongTRUE`.
+
+```
+d <- as.numeric # for short
+mutate(fpe, 
+  settingMed = d(setting_g=="Medium"), settingHigh = d(setting_g=="High"),
+  effortMod = d(effort_g=="Moderate"), effortStrong = d(effort_g=="Strong"))
+lm(change ~ settingMed + settingHigh + effortMod + effortStrong, data=fpe)
+```
+
+We need a total of four dummies to represent the interactions, which can
+be computed simply as the product of the indicators for the main effects.
+
+```
+fpe <- mutate(fpe, 
+  seMedMod = settingMed*effortMod, seMedStrong=settingMed*effortStrong,
+  seHighMod = settingHigh*effortMod, seHighStrong = settingHigh*effortStrong)
+lm(change settingMed + settingHigh + effortMod + effortStrong + 
+  seMedMod + seMedStrong + seHighMod + seHighStrong, data = fpe)
+```
+
+Our software will again omit a variable, but you have more control on what to drop.
+Can you figure out which dummies you would need to show the effects of effort at
+each level of setting?
+
+<small>Updated fall 2022</small>

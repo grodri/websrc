@@ -1,0 +1,88 @@
+
+## 8.3 Longitudinal Logits
+
+We will work with a dataset on union membership used in the Stata manuals
+and in my own paper on intra-class correlation for binary data. This is
+a subsample of the National Longitudinal Survey of Youth (NLSY) and has
+union membership information from 1970-88 for 4,434 women aged 14-26 in
+1968. The data are available in the Stata website
+
+```s
+	use https://www.stata-press.com/data/r14/union, clear
+```
+
+### Logits
+
+Here is a logit model
+
+```s
+	gen southXt = south*year
+	logit union age grade not_smsa south##c.year
+	estimates store logit
+```
+
+### Fixed-Effects
+
+Let us try a fixed-effects model first.
+
+```s
+	xtlogit union age grade not_smsa south##c.year, i(id) fe
+	estimates store fixed
+```
+
+Note how we lost 62% of our sample, down from 4434 to 1690 women.
+The 2744 drop outs are women who didn't have variation in union membership over
+time. We will compare the estimates later.
+
+### Random-Effects
+
+Now we fit a random-effects model:
+
+```s
+	xtlogit union age grade not_smsa south##c.year, i(id) re nolog
+	estimates store random
+```
+
+### Comparisons
+
+Here's a table comparing the estimates for logit, random and fixed-effects models.
+We use the `equation` option so Stata can match the estimates.
+
+```s
+	estimates table logit random fixed, equation(1)
+```
+
+The main change is in the coefficient of `not_smsa`. You might think
+this indicates something wrong with the logit and random-effects models,
+but note that only women who have *moved* between standard metropolitan
+statistical areas and other places contribute to the fixed-effects
+estimate. It seems reasonable to believe that these women differ from
+the rest.
+
+The random-effect coefficients are larger in magnitude than the ordinary
+logit coefficients. This is almost always the case. Omission of the
+random effect biases the coefficients towards zero.
+
+### Intra-class Correlation
+
+The intra-class correlation of 0.636 in the random-effects model indicates
+a high correlation between a woman's propensity to be a union member
+in different years, after controlling for education and residence.
+
+My paper with Elo in the Stata journal shows how this coefficient can be
+interpreted in terms of an odds ratio, and translated into measures of manifest
+correlation such as Pearson's r and Yule's Q.
+
+These measures can be calculated using `xtrho`, a post-estimation command
+available from the Stata journal website. In Stata type `search xtrho`, or 
+`net describe st0031, from(https://www.stata-journal.com/software/sj3-1)`.
+For the average woman the correlation between actual union membership in
+any two years is 0.42 using Pearson's r and 0.78 using Yule's Q.
+
+### Reference
+
+Rodríguez, G. and Elo, I. (2003). "Intra-class correlation in random-effects
+models for binary data". *The Stata Journal*,__3__(1):32-46.
+<https://journals.sagepub.com/doi/pdf/10.1177/1536867X0300300102>
+
+<small>Updated fall 2022</small>

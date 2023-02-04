@@ -1,0 +1,164 @@
+
+## 2.7 Two-Way Analysis of Variance {#c2s7 .first}
+
+We start by reading the data and recreating setting in groups.
+This time I'll make the copying, recoding and labeling in just one command.
+
+```s
+	use https://grodri.github.io/datasets/effort, clear
+	recode setting (min/69=1 "Low") (70/79=2 "Medium") (80/max=3 "High"), ///
+	  gen(setting_g) label(setting_g)
+```
+
+Let us now create a copy of program effort and group it into categories
+0-4, 5-14 and 15+. We'll call the variable `effort_g` for effort in groups.
+
+```s
+	recode effort (0/4=1 "Weak") (5/14=2 "Moderate") ///
+	  (15/max=3 "Strong"), gen(effort_g) label(effort_g)
+```
+
+Here's a table showing steeper declines in countries with strong
+programs, with a smaller difference between weak and moderate:
+
+```s
+	tabulate effort_g, summarize(change)
+```
+
+### An Additive Model
+
+Let us fit a model treating both setting and effort as factor variables,
+with weak programs in low settings as the reference cell
+
+```s
+	reg change i.setting_g i.effort_g
+```
+
+Compare these estimates with the results in Table 2.15 and the anova
+with Table 2.16 in the lecture notes.
+
+Countries with strong family planning programs show steeper declines
+than countries with weak programs at the same level of social setting,
+on average 21 percentage points more.
+
+This statement is based on the assumption of additivity, namely that the
+difference in outcomes across categories of program effort is the same
+at every level of setting. We will test this assumption [below](#2wayi).
+
+As you can see the differences in fertility change by level of effort,
+among countries with the same level of setting are significant, with an
+F-ratio of 11.5 on 2 and 15 d.f.
+
+### Fitted Values
+
+Let us reproduce Table 2.17 in the notes, showing fitted means by grouped
+setting and effort. I will use
+`predict` to generate fitted values, and then tabulate them
+by the two relevant factors
+
+```s
+	predict anovafit
+	label var anovafit "Two-way anova fit"
+	tabulate setting_g effort_g , summarize(anovafit) means
+```
+
+Can you get the missing cell in the upper right corner? How about the
+margins, can you get those values?
+
+### A Two-Factor Interaction
+
+Let us now consider a model with an interaction between social setting
+and program effort, so differences in fertility decline by effort will
+vary by setting.
+
+Stata understands a single or double hash, typed without spaces after a
+factor specification, to define models with interactions.
+
+-   A single hash, as in `i.setting_g#i.effort_g`, takes the first cell
+    in the cross-tabulation of setting and effort groups as the baseline
+    and creates eight dummies, one for each of the other cells. In this
+    parametrization each combination of levels is compared directly to
+    the baseline, unless you explicity include the main effects as well.
+
+-   A double hash, as in `i.setting_g##i.effort_g`, creates main effects
+    and interactions, and corresponds to the usual parametrization. 
+	Recall that in this case "main" effects are really differences between 
+	categories of one factor when the other factor is at the baseline, 
+	and the "interactions" are *additional*  differences when the other 
+	factor is not at the baseline. This is equivalent to writing 
+	`i.setting_g i.effort_g i_setting_g#i.effort_g`.
+
+Let us fit the model using the double hash notation:
+
+```s
+	regress change i.setting_g##i.effort_g
+```
+
+Oops, our software dropped a term. Why? Because there are no countries with
+strong programs in low settings, so we have only eight groups, but are
+trying to represent their means using nine parameters, which is
+obviously one too many. Fortunately this doesn't affect testing.
+
+We can use the sum of squares to build the hierarchical anova in Table 2.21, 
+and Stata can test the interaction for us, dropping automatically the redundant 
+term:
+
+```s
+	testparm i.setting_g#i.effort_g
+```
+
+We have no evidence that the differences by effort vary with social
+setting, with an F just below 1 on 3 and 12 d.f.
+
+This makes the issue of interpreting parameters moot, but it may be
+worth noting briefly the problems caused by the empty cell. As things
+stand, the coefficient of moderate effort compares moderate with weak at
+low setting, but the coefficient of strong effort compares strong with
+weak at high setting. (Table 2.20 in the notes may help see this point.
+When the term for high and strong is dropped, the only difference
+between weak and strong programs at high setting is the coefficient of
+strong.)
+
+The parametrization I like best for this problem combines the main
+effects of effort with the interactions, so we obtain differences
+between strong and weak, and between moderate and weak programs, at each
+level of setting. This allows us to omit the difference between strong
+and weak programs at low setting, which is the one we can't identify.
+Try the specification below
+
+```
+reg change i.setting_g i.effort_g#i.setting_g
+```
+
+### Dummy Variables
+
+You could have obtained the same results in this unit using dummy variables.
+For the record, this is how you might build the dummies and fit the models.
+For the additive model we need just four indicators, two for each factor.
+
+```
+gen setting_med   = setting_g==2 // setting >= 70 & setting < 80
+gen setting_high  = setting_g==3 // setting >= 80 & !missing(setting)
+gen effort_mod    = effort_g ==2 // effort >= 5 & effort < 15
+gen effort_strong = effort_g ==3 // effort >= 15 & !missing(effort)
+regress change setting_med setting_high effort_mod effort_str
+```
+
+We need a total of four dummies to represent the interactions, which can
+be computed simply as the product of the indicators for the main effects.
+Here it is hard to come up with reasonable names in 12 characters or less.
+
+```
+gen se_med_mod = setting_med  * effort_mod
+gen se_med_str = setting_med  * effort_str
+gen se_hi_mod  = setting_high * effort_mod
+gen se_hi_str  = setting_high * effort_str
+regress change setting_med setting_high effort_mod effort_str ///
+	se_med_mod se_med_str se_hi_mod se_hi_str
+```
+
+Our software will again omit a variable, but you have more control on what to drop.
+Can you figure out which dummies you would need to show the effects of effort at
+each level of setting?
+
+<small>Updated fall 2022</small>

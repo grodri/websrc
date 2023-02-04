@@ -1,0 +1,382 @@
+
+## 3.6 Multi-factor Models: Model Selection {#c3s6 .first}
+
+We now move to an analysis using all three predictors: age, desire for no more
+children, and education, which is grouped into two categories: lower primary or
+less, and upper primary or more. The data can be read from the datasets section.
+We will use the wider format, that has 16 rows; one for each combination of
+the three predictors, with columns for users and nonusers.
+(The last section shows how one can obtain  the same results using the longer
+format, that has 32 rows: one for each combination of the three predictors and
+response, with a column for the frequency of that combination.)
+
+```s
+	use cusew, clear	
+	gen n = users + nonusers
+	list, sep(4)
+```
+
+We start by considering models that treat age as a factor with four categories,
+fertility preferences using an indicator for wanting no more, and
+educational level using an indicator for upper primary or more.
+Because  we have only three variables we are able to fit all possible models,
+which provides a nice check on the usual model building strategies using
+forward selection and backward elimination.
+
+### The Deviance Table
+
+Let us reproduce Table 3.13, which compares all possible one, two and
+three-factor models.
+
+The first step will be to fit the model with the three-factor interaction, 
+which is saturated for the 2x4x2x2 table of contraceptive use by age, education, 
+and desire for more children. We will store the log-likelihood and d.f. in two 
+scalars, and save the fitted values for later plotting.
+
+```s
+	quietly glm users i.age##c.nomore##c.educ, family(binomial n)
+	scalar slogL = e(ll)
+	scalar sdf = e(df_m)
+	predict obs3, xb   // 3-way model
+```s
+
+:::
+Next we are going to fit 16 different models. Given the repetitive nature of 
+the calculations it pays to plan in advance. I will create three variables to 
+store the name, deviance and d.f. of each model, using a string of up to 36 
+characters for the model name.
+:::
+
+```s
+	set obs 17
+	gen str36 model = ""
+	gen deviance = .
+	gen df = .
+```
+
+We then write a simple command that takes as arguments the name and
+specification of the model, fits it, and stores the name, deviance and
+d.f. in the three variables just defined, using a global macro `n` to
+keep track of the number of the row where the results will be stored.
+
+```s
+capture program drop mfit
+program mfit
+	version 11
+	args model formula
+	quietly glm users `formula', family(binomial n)
+	global n = $n + 1
+	quietly replace model = "`model'" in $n
+	quietly replace deviance = e(deviance) in $n
+	quietly replace df = sdf - e(df_m) in $n
+end
+```
+
+Finally I initialize the row number to 0 and fit the models, taking care
+to enclose the model name and formula in quotes to ensure that they are
+treated as just two arguments rather than split into words
+
+```s
+	set obs 17
+	global n = 0
+	// one-factor models
+	mfit Age i.age
+	mfit Education educ
+	mfit "NoMore" nomore
+	// two-factor additive models
+	mfit "Age + Education" "i.age educ"
+	mfit "Age + NoMore"  "i.age nomore"
+	mfit "Education + NoMore" "educ nomore"
+	// two-factor interactions
+	mfit "Age * Education" "i.age##c.educ"
+	mfit "Age * NoMore" "i.age##c.nomore"
+	mfit "Education * NoMore" "c.educ##c.nomore"
+	// three-factor additive model
+	mfit "Age + Education + NoMore" "i.age c.educ c.nomore"
+	// one interaction
+	mfit "Age * Education + NoMore" "i.age##c.educ nomore"
+	mfit "Age * NoMore + Education" "i.age##c.nomore educ"
+	mfit "Age + Education * NoMore" "i.age c.nomore##c.educ"
+	// two interactions
+	mfit "Age * (Education + NoMore)" "i.age##c.educ i.age##c.nomore"
+	mfit "Education * (Age + NoMore)" "i.age##c.educ c.educ##c.nomore"
+	mfit "NoMore * (Age + Education)" "i.age##c.nomore c.educ##c.nomore"
+	// three interactions
+	mfit "Age*Educ+Age*NoMore+Educ*NoMore" ///
+	  "i.age##c.nomore c.educ i.age#c.educ c.educ#c.nomore"
+```
+Done, let's print the results, using only two decimal places for the
+deviances
+
+```s
+	format deviance %6.2f
+	list model deviance df if !missing(deviance), clean
+```
+
+Please refer to the notes for various tests based on these models. You
+should be able to test for net effects of each factor given the other
+two, test each of the interactions, and test the goodness of fit of each
+model. We now examine three models of interest.
+
+### The Three-factor Additive Model
+
+We fit again the three-factor additive model, so we can show the 
+parameter estimates reflecting the net effect of each factor.
+The gross effects of age and desire or no more children have been shown
+in earlier sections.
+
+```s
+	glm users i.age educ nomore, family(binomial n)
+	di exp(_b[educ])
+```
+
+Contraceptive use differs by each of these factors, even when we compare
+women who fall in the same categories of the other two. For example the
+odds of using contraception are 38% higher among women with upper primary
+or more, compared to women with lower primary or less, in the same age group
+and category of desire for more children.
+
+The deviance of 29.92 on 10 d.f. tells us that this model does not fit
+the data, so the assumption that logit differences by one variable are
+the same across categories of the other two is suspect.
+
+### The Model with One Interaction Effect
+
+Of the three models with one interaction term, the one that achieves the
+largest improvement in fit compared to the additive model is the model
+with an age by no more interaction, where the difference in logits
+between women who want no more children and those who do varies by age.
+
+The standard reference-cell parametrization can easily be obtained using
+factor variables:
+
+```s
+	glm users educ i.age##c.nomore, family(binomial n)
+	di exp(_b[nomore]), exp(_b[4.age#c.nomore]), ///
+	  exp(_b[nomore] + _b[4.age#c.nomore]) 
+```
+
+Make sure you know how to interpret all of these coefficients. For
+example the ratio of the odds of using contraception among women who
+want no more children relative to those who want more in the same
+category of education is 1.07 among women under age 25, but 3.9 times
+more (giving an odds ratio of 4.1) among women in their forties.
+
+To aid in interpretation and model criticism we can plot the observed
+and fitted logits, effectively reproducing Figure 3.4. Because we will
+need more than one plot, I will encapsulate the calculations in a
+command `pof`,
+for [p]{.underline}lot [o]{.underline}bserved and [f]{.underline}itted.
+
+```s
+capture program drop pof
+program pof
+	args obs fit more
+	// build labels for the curves using fit at last age
+	local labels `""nomore/upper" "nomore/lower" "more/upper" "more/lower""'
+	local text 
+	forvalues i=1/16 {
+		if age[`i'] != 4 continue
+		local k =  4 - 2*nomore[`i'] - educ[`i'] 
+		local label: word `k' of `labels'
+		local value = round(`fit'[`i'], 0.01)
+		local text `text' `value' 45.5 "`label'"
+	}
+	// plot observed and fitted logits
+	twoway ///
+	  (scatter `obs' agem if educ==1 & nomore==1, ms(S) mc(red)) ///
+	  (scatter `obs' agem if educ==0 & nomore==1, ms(T) mc(red)) ///
+	  (scatter `obs' agem if educ==1 & nomore==0, ms(O) mc(green)) ///
+	  (scatter `obs' agem if educ==0 & nomore==0, ms(D) mc(green) ) ///	  
+	  (line `fit' agem if educ==1 & nomore==1, lp(solid) lc(red))  ///
+	  (line `fit' agem if educ==0 & nomore==1, lp(dash) lc(red) ) ///
+	  (line `fit' agem if educ==1 & nomore==0, lp(solid) lc(green)) ///
+	  (line `fit' agem if educ==0 & nomore==0, lp(dash) lc(green)) ///
+	  , title("Contraceptive Use by Age, Education, and Preferences") ///	  
+	    xtitle(age) ytitle(logit)  legend(off) `more' ///
+		xsc(range(15 50)) text(`text', placement(r) size(vsmall)) 
+end
+```
+
+The plot combines four scatterplots and four line plots, one for each
+subgroup defined by education and desire for more children. The command
+takes as arguments the names of variables with the observed and fitted
+value and an optional string to be passed along as an option to the
+graph twoway command. I use the same markers as in the notes, but with
+what I hope is a better legend.
+
+So here's our first plot
+
+```s
+	recode age (1=20) (2=27.5) (3=35) (4=45), gen(agem)
+	gen obs = log(users/nonusers)
+	predict lfit31, xb
+	pof obs lfit31 "subtitle(Model with Age by Preferences Interaction)"
+	graph export fig34.png, width(500) replace
+```
+
+![](fig34.png){.img-responsive .center-block .stata}
+
+I often find that interpretation of the interactions is more direct if I
+combine them with the main effects. Here is the same model showing the
+difference in logits by desire for more children in each age group,
+reproducing the results in Table 3.15
+
+```s
+	glm users i.age i.age#c.nomore educ, family(binomial n)
+	estimates store mint
+	di exp(_b[educ])
+	mata exp(st_matrix("e(b)")[5..8])
+	
+```
+
+We find 34% higher odds of using contraception among women with some education,
+compared to women with no education in the same age group and category
+of desire. We also see that the odds of using contraception among women
+who want no more children are higher than among women who want more
+children in the same age and category of education, 7% higher under age
+25, 38% higher at age 25-29, three times as high for women in their
+thirties, and four times as high among women in their forties.
+
+This model passes the conventional goodness of fit test and therefore
+provides a reasonable description of contraceptive use by age,
+education, and desire for more children.
+
+### All Three Two-Factor Interactions
+
+As explained in the notes, there is some evidence that education may
+interact with the other two variables. The model with all three
+two-factor interactions provides the best fit, with a deviance of 2.44
+on three d.f., but is substantially more complex.
+
+Rather than present parameter estimates, I will reproduce Figure 3.5,
+which provides some hints on how the model could be simplified. Thanks
+to our `pof` command this is now an easy task:
+
+```s
+	quietly glm users i.age educ nomore ///
+	i.age#c.educ i.age#c.nomore c.educ#c.nomore, family(binomial n)
+	predict lfit32, xb 
+	pof obs lfit32 "subtitle(All Two-Factor Interactions)"
+	graph export fig35.png, width(500) replace        
+```
+
+![](fig35.png){.img-responsive .center-block .stata}
+
+A picture is indeed worth a thousand words. We see that among women who
+want no more children, contraceptive use increases almost linearly (in
+the logit scale) with age, with no differences by education except in the
+oldest age group, where use flattens for women with no education. Among
+women who do want more children, contraceptive use is generally lower,
+and increases more slowly with age; there are some differences by education,
+and these are higher among older women. There's also a hint of
+curvature by age for women with no education who want more children.
+
+### A Parsimonious Model
+
+These observations suggest ways to simplify the model. The age
+interactions are quite simple: the increase with age is steeper among
+women who want no more children, and the difference by education is
+larger among women in their forties. Similarly, the educational
+difference is larger in use for spacing and among older women.
+
+One way to capture these features is to use a quadratic on age, allow
+the slope (but not the curvature) to vary by desire for more children,
+and introduce effects of education only for spacing and after age 40
+(and thus not for limiting before age 40). To facilitate interpretation
+of the resulting parameters I center age around 30:
+
+```s
+	gen agemc   = agem - 30
+	gen agemcsq = agemc^2
+	gen educ_spacers = educ * (1-nomore)
+	gen educ_forties = educ * (age==4)
+```
+
+So here is a more parsimonious model
+
+```s
+	glm users c.agemc##c.nomore agemcsq c.educ_spacers educ_forties, ///
+	  family(binomial n)	
+```
+
+This model has only seven parameters and a deviance of 5.9 on 9 d.f., so
+it is much simpler than the previous model and fits pretty well.
+Obviously we can't take the test seriously because we didn't specify
+these terms in advance, but the exercise shows how one can simplify a
+model by capturing its essential features. Before we interpret the
+coefficients let us check the fitted values
+
+```s
+	predict lfit33, xb
+	pof obs lfit33 "subtitle(A Simplified Model)"
+	graph export fig35b.png, width(500) replace
+```
+
+![](fig35b.png){.img-responsive .center-block .stata}
+
+We see that the model provides almost the same fit as the much more
+complex model of the previous subsection.
+
+```s
+	di exp(_b[agemc])
+	di exp(_b[nomore]), exp(_b[c.agemc#c.nomore])
+	di exp(_b[educ_spacers]), exp(_b[educ_forties])
+```
+
+Returning to the parameter estimates,
+we see that contraceptive use generally increases with age,
+with an increment in the odds of about 2.5 percent per year at age 30 (less
+at younger and older ages, with differences noted below after age 40). Use
+is much higher among women who want no more children, with an odds ratio of
+2.7 at age 30, increasing about six percent per year of age. Women with
+some education are more likely to use contraception for spacing
+purposes, with an odds ratio of 1.5, and are also more likely to use for
+either spacing or limiting after age 40, with an odds ratio of 2.7
+(which makes the odds ratio by education for spacers after age 40 just
+above four).
+
+Alternative model simplifications are given in the notes.
+
+### Weighted Individual Data
+
+As promised, we show briefly how one can obtain the same results using a
+dataset with one row for each combination of predictors and response,
+with a column indicating the frequency of that combination, effectively
+simulating individual data.
+This lets us use the `logit` or `logistic` commands in Stata.
+
+We will illustrate the equivalence using the model with a main effect of
+education and an  interaction between age and wanting no more children,
+which we kept as `mint`.
+
+```s
+//	use https://grodri.github.io/datasets/cuse, clear
+	use cuse, clear
+	gen nomore = desire==1
+	list in 1/4
+	logit cuse educ i.age i.age#c.nomore [fw=n]
+	estimates store mintlong
+	estimates table mint mintlong, equation(1) se 
+```
+
+As you can see, the estimates and standard errors are exactly the same as
+before. The deviance is different because in this dataset the saturated
+model would have a separate parameter for each woman. We can reproduce
+the deviance of 12.63 on 7 d.f. given earlier, by computing the difference
+in deviances (or twice the difference in log-likelihoods) between the model
+with a three factor interaction and this model:
+
+```s
+	quietly logit cuse i.educ##i.age##c.nomore [fw=n]
+	lrtest mintlong .
+```
+
+Thus, working with grouped data gives exactly the same estimates as working
+with individual data, except of course for the deviances. Recall that
+deviances can be interpreted as goodness of fit tests only with grouped
+data, but differences in deviances between nested models can always be
+interpreted as likelihood ratio tests. We discuss how to test goodness of
+fit with individual data in [Section 3.8](c3s8).
+
+<small>Updated fall 2022</small>

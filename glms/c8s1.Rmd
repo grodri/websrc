@@ -1,0 +1,135 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+# 8. Models for Clustered and Panel Data {#c8s1 .first}
+
+We will illustrate the analysis of clustered or panel data using three
+examples, two dealing with linear models and one with logits models.
+The linear model examples use clustered school data on IQ and language
+ability, and longitudinal state-level data on Aid to Families with
+Dependent Children (AFDC).
+
+## 8.1 Clustered Linear Model
+
+Snijders and Boskers (1999), *Multilevel Analysis*, have data for 2287
+8-th grade children in 131 schools in The Netherlands.
+The data are available in the datasets section in a Stata file and can
+be read directly from Stata or R.
+
+```{r}
+library(haven)
+sn <- read_dta("https://grodri.github.io/datasets/snijders.dta")
+```
+
+### OLS
+
+We are interested in the relationship between verbal IQ and the score in
+a language test. OLS gives a highly significant coefficient of 2.65 with
+a standard error of 0.072:
+
+```{r}
+ols <- lm(langpost ~ iq_verb, data=sn)
+coef(summary(ols))
+```
+
+### Random Effects
+
+We consider the fact that the observations are probably correlated
+within each school, because of unobserved school characteristics that
+affect language scores (such as a good language teacher).
+
+```{r}
+library(lme4)
+re <- lmer(langpost ~ iq_verb + (1 | schoolnr), data=sn, REML = FALSE)
+summary(re)
+v = as.numeric(VarCorr(re)) # variance of random effects
+v/(v + sigma(re)^2)         # intra-class correlation
+-2*(logLik(ols)-logLik(re)) # LR test
+```
+
+The coefficient of verbal IQ is 2.49 with a standard error of 0.071 and
+is still highly significant. We have also learned that the language
+scores *are* correlated within schools; in fact, 18.3% of the variation
+in language scores net of verbal IQ can be attributed to the schools
+(the rest is due to the pupils). The intra-class correlation is highly
+significant, as shown by a test statistic of 225.9 (conservatively a
+chi-squared with one d.f.)
+
+### Fixed-Effects (Within)
+
+We now consider a fixed-effects model that allows for the possibility of
+a correlation between unobserved school characteristics and verbal IQ
+(the school with the good teacher attracts brighter students):
+
+To estimate a fixed-effects model in R we use the `plm` package.
+
+```{r}
+library(plm)
+fe <- plm(langpost ~ iq_verb, data = sn, model = "within", index = "schoolnr")
+summary(fe)
+```
+
+Our results are very robust, the coefficient of verbal IQ is 2.41 with a
+standard error of 0.071. We feel pretty confident in our conclusions.
+Note that we get an F-test for school effects, which are highly
+significant.
+
+### Group Means (Between)
+
+If you are not deterred by the ecological fallacy you could have analyzed group means.
+We group the data by school and then calculate the mean outcome and predictor, as well 
+as the number of students in the school, which we use as weight in the regression.
+
+```{r}
+library(dplyr)
+msn <- summarize(group_by(sn, schoolnr), 
+  langpost=mean(langpost), iq_verb=mean(iq_verb), w=n())
+be <- lm(langpost ~ iq_verb, data=msn, weight = w)
+summary(be)
+```
+
+This gives a much larger coefficient of 3.90, albeit with a larger
+standard error of 0.334. Clearly working with aggregate data would
+overestimate the relationship between verbal IQ and language scores.
+Note that the random-effects estimate is between the within and between
+estimates (it always is).
+
+### Comparison of Estimates
+
+The following figure shows the data, separate regression fits for each of
+the 131 schools, and the between, within, and random-effects estimates.
+First we run the school regressions
+
+```{r}
+fits <- group_by(sn, schoolnr) |> do(lf = lm(langpost ~ iq_verb, data = .))
+sr <- data.frame(id = fits[[1]], t(sapply(fits[[2]], coef)))
+names(sr) <- c("schoolnr", "sa", "sb")
+snp <- left_join(sn, sr, by= "schoolnr") |> mutate(fv = sa + sb * iq_verb)
+```
+And then we do the combined plot
+
+```{r}
+library(ggplot2)
+fei <- mean(sn$langpost - coef(fe)*sn$iq_verb) # intercept for within estimate
+png("snijdersr.png", width=500, height=400)
+ggplot(snp, aes(iq_verb, langpost)) + geom_point(color="#c0c0c0") +
+  geom_line( aes(iq_verb, fv, group=schoolnr), color="#c0c0c0") +
+  geom_abline(intercept=fixef(re)[1], slope=fixef(re)[2], color="green", size=1) +
+  geom_abline(intercept=coef(be)[1], slope=coef(be)[2], color="red", size=1) +
+  geom_abline(intercept=fei, slope=coef(fe), color="blue", size=1) +
+  ggtitle("Language Scores and Verbal IQ") + labs(x="Verbal IQ", y="Language Score")
+dev.off()
+```
+
+![](snijdersr.png){.img-responsive .center-block .r}
+
+The red line is the between-groups estimate, which overstates the
+relationship between IQ and language scores. The blue line is the
+within-groups or fixed-effects estimator. The green line is the
+random-effects estimator, which is always an average of the within and
+between, and in this case comes very close to the within-group
+estimator.
+
+<small>Updated fall 2022</small>

@@ -1,0 +1,101 @@
+
+## 3.7 Other Choices of Link
+
+Two brief notes on the latent variable formulation of binary response
+models and the use of alternative links. First we plot three different
+links in a standardized scale. Second we compare logit and probit
+estimates for a model of contraceptive use.
+
+### Three Link Functions
+
+Let us reproduce Figure 3.7, which shows the logit, probit and
+complementary log-log link, after standardizing the latent variable so
+it has mean 0 and variance 1. The probit link is based on the standard
+normal distribution, which is already standardized. The logit link is
+based on the standard logistic distribution, which has mean 0 and
+variance π^2^/3. The c-log-log link is based on the extreme value (log
+Weibull) distribution, with mean 0.577 and variance π^2^/6.
+
+```s
+	twoway function y=normal(x), range(-2 2) lpat(solid) ///
+	  || function y=invlogit(x*_pi/sqrt(3)), range(-2 2) lpat(dash) ///
+	  || function y=1-exp(-exp(-0.577+x*_pi/sqrt(6))), range(-2 2) lpat(longdash) ///
+	 , title("Figure 3.7: Probit, Logit and C-Log-Log Links") ///
+	   subtitle(Standardized) ytitle(Probability) xtitle("Linear Predictor") ///
+	   legend(order(1 "probit" 2 "logit" 3 "cloglog") cols(1) ring(0) pos(5)) 
+	graph export fig37.png, width(500) replace
+```
+
+![](fig37.png){.img-responsive .center-block .stata}
+
+As you can see, the logit and probit links are virtually
+indistinguisable. The c-log-log link looks different, but one would
+still need very large sample sizes to be able to distinguish it from the
+others.
+
+### A Probit Model
+
+We will fit a probit model to the data on contraceptive use by age and
+desire for more children. Following the notes we will pick the
+specification where age is treated linearly and we include an
+interaction between age and desire for no more children. To simplify
+interpretation of the interaction we center age at 30 years.
+We use the `glm` command to handle grouped data, see also `probit` for 
+individual data.
+
+```s
+	//use https://grodri.github.io/datasets/cuse, clear
+	use d:/dataweb/wws509/datasets/cusew, clear
+	gen n = users + nonusers
+	recode age (1=-10) (2=-2.5) (3=5) (4=15), gen(agemc)
+	glm users agemc nomore c.nomore#c.agemc, family(binomial n) link(probit)
+	mat b_probit = e(b)'
+```
+
+Probit coefficients can be interpreted in terms of a standardized latent
+variable representing a propensity to use contraception, or the
+difference in expected utilities between using and not using
+contraception.
+
+We see that the propensity among women who want more children increases
+with age at the rate of just over one tenth of a standard deviation per
+year. More interestingly, the propensity is 0.44 standard deviations
+higher among women who want no more children than among those who want
+more at age 30. This difference increases by 0.03 standard deviations
+per year of age, so it is 0.13 standard deviations at age 20 but 0.74
+standard deviations at age 40. As a result, the propensity to use
+contraception among women who want no more children is 0.04 standard
+deviations higher per year of age.
+
+It may be of interest to compare logit and probit coefficients. One way
+to compare them is to divide the logit coefficients by π/√3 = 1.8.
+This standardizes the logistic latent variable to have variance one, so
+the coefficients have the same interpretation as a probit model. The first
+two columns in the table below show that the two sets of coefficients are
+in fact very similar
+
+```s
+	quietly glm users agemc nomore c.nomore#c.agemc, family(binomial n)
+	mat b_logit = e(b)'
+	mat both = b_probit, b_logit*sqrt(3)/_pi, b_logit/1.6
+	mat colnames both = probit logit_std amemiya
+	mat list both
+```
+
+Gelman and Hill (2007), following Amemiya (1981), recommend dividing by 1.6.
+This factor was chosen by trial and error to make the transformed logistic
+approximate the standard normal distribution over a wide domain. As
+shown in the third column above, it gives a somewhat closer approximation
+to the probit coefficients in our example, particularly for the interaction
+term. Of course the difference between dividing by 1.8 or 1.6 is not going to
+be large.
+
+### References
+
+Gelman, A. and Hill, J. (2007) *Data Analysis Using Regression and
+Multilevel/Hierarchical Models*. Cambridge: Cambridge University Press.
+
+Amemiya, T. (1981). Qualitative response models: a survey. *Journal
+of Economic Literature*, __19__:1483--1536.
+
+<small>Updated fall 2022</small>

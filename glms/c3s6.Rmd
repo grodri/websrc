@@ -1,0 +1,330 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 3.6 Multi-factor Models: Model Selection {#c3s6 .first}
+
+We now move to an analysis using all three predictors: age, desire for no more
+children, and education, which is grouped into two categories: lower primary or
+less, and upper primary or more. The data can be read from the datasets section.
+We will use the wider format, that has 16 rows; one for each combination of
+the three predictors, with columns for users and nonusers.
+(The last section shows how one can obtain  the same results using the longer
+format, that has 32 rows: one for each combination of the three predictors and
+response, with a column for the frequency of that combination.)
+
+```{r}
+library(haven)
+library(dplyr)
+cuse <- read_dta("https://grodri.github.io/datasets/cusew.dta")
+cuse <- mutate(cuse, age=as_factor(age), educ=as.numeric(educ), 
+  nomore=as.numeric(nomore), Y=cbind(users, nonusers) )
+cuse
+```
+
+We start by considering models that treat age as a factor with four categories,
+fertility preferences using an indicator for wanting no more, and
+educational level using an indicator for upper primary or more.
+Because  we have only three variables we are able to fit all possible models,
+which provides a nice check on the usual model building strategies using
+forward selection and backward elimination.
+
+### The Deviance Table
+
+Let us reproduce Table 3.13, which compares all possible one, two and
+three-factor models.
+
+There are 19 basic models for these data. Not all of them would be of interest 
+in any given analysis, but for completeness we will fit all except the null 
+and saturated, effectively reproducing Table 3.13 in the notes.
+
+To simplify some of the repetitive tasks required to fit so many models, I'll 
+create a vector with the right-hand-side formulas, and write a function to fit 
+each model, pasting the response and adding the family and the data frame 
+before calling `glm()`.
+
+```{r}
+rhs <- c("1","age", "educ", "nomore",
+   "age + educ", "age + nomore", "educ + nomore", 
+   "age * educ", "age * nomore", "educ * nomore", 
+   "age + educ + nomore",
+   "age * educ + nomore", "age * nomore + educ", 
+   "age + educ * nomore", "age * (educ + nomore)", 
+   "educ * (age + nomore)", "(age + educ) * nomore", 
+   "age*educ*nomore - age:educ:nomore")
+mfit <- function(formula) glm(formula, family=binomial, data=cuse)
+```
+
+Now we simply loop, storing the results in a list
+
+```{r}
+models <- vector("list",length(rhs))
+for(i in 1:length(rhs)) {
+  mf <- as.formula(paste("Y", rhs[i], sep="~"))
+  models[[i]] <- glm(mf, family="binomial", data=cuse)
+}
+```
+
+Finally I use `lapply()` to extract the deviances and df, adding the right-hand
+sides to identify the models. The result is Table 3.13:
+
+```{r}
+data.frame(
+  model = rhs, 
+  deviance = round(unlist(lapply(models, deviance)), 2),
+  df = unlist(lapply(models, df.residual))
+)
+```
+
+Please refer to the notes for various tests based on these models. You
+should be able to test for net effects of each factor given the other
+two, test each of the interactions, and test the goodness of fit of each
+model. We now examine three models of interest.
+
+### The Three-factor Additive Model
+
+We now show the coefficients and standard errors for the three-factor
+additive model, focusing on the net effect of each factor.
+The gross effects of age and desire or no more children have been shown
+in earlier sections.
+
+```{r}
+summary(models[[11]])$coefficients
+exp(coef(models[[11]]))
+```
+
+Contraceptive use differs by each of these factors, even when we compare
+women who fall in the same categories of the other two. For example the
+odds of using contraception are 38% higher among women with upper primary
+or more, compared to women with lower primary or less, in the same age group
+and category of desire for more children.
+
+The deviance of 29.92 on 10 d.f. tells us that this model does not fit
+the data, so the assumption that logit differences by one variable are
+the same across categories of the other two is suspect.
+
+### The Model with One Interaction Effect
+
+Of the three models with one interaction term, the one that achieves the
+largest improvement in fit compared to the additive model is the model
+with an age by no more interaction, where the difference in logits
+between women who want no more children and those who do varies by age.
+
+The standard reference-cell parametrization can easily be obtained using
+factor variables:
+
+```{r}
+summary(models[[13]])$coefficients
+b <- coef(models[[13]])
+exp(b[grep("nomore",names(b))])
+```
+
+Make sure you know how to interpret all of these coefficients. For
+example the ratio of the odds of using contraception among women who
+want no more children relative to those who want more in the same
+category of education is 1.07 among women under age 25, but 3.9 times
+more (giving an odds ratio of 4.1) among women in their forties.
+
+To aid in interpretation and model criticism we can plot the observed
+and fitted logits, effectively reproducing Figure 3.4. Because we will
+need more than one plot, I will encapsulate the calculations in a
+function `pof()',
+for [p]{.underline}lot [o]{.underline}bserved and [f]{.underline}itted.
+
+```{r}
+library(ggplot2)
+labels = c("nomore/upper", "nomore/lower", "more/upper", "more/lower")
+cuse <- mutate(cuse, agem = c(20, 27.5, 35, 45)[age], obs = log(users/nonusers),
+code = 5 - 2*nomore - educ, subgroup = factor(code, labels=labels))
+gp <- ggplot(cuse, aes(agem, obs, shape=subgroup, color=subgroup)) + geom_point() +
+  scale_shape_manual(values= c(15, 17, 19, 18)) + xlim(20,50) +
+  theme(legend.position="bottom") + xlab("age") + ylab("logit")
+pof <- function(model, subtitle) {
+  cuse$fit = predict(model, type="link")
+  p <- gp
+  linetypes <- c("solid","dashed","solid","dashed")
+  colors <- c("red", "green","blue","purple")
+  for(i in 1:4) {
+sg <- filter(cuse, subgroup==labels[i])
+y <- filter(sg, age=="40-49")$fit
+lt <- linetypes[i]
+p = p + geom_line(data=sg, mapping=aes(agem, fit), linetype=lt, color=colors[i]) +
+  annotate("text", x=45.6, y=y, label=labels[i], hjust=0, size=3) +
+  ggtitle("Contraceptive Use by Age, Education and Preferences", subtitle=subtitle)
+  }
+  p
+}
+```
+
+I first use `geom_point` to plot the observed logits and save the plot
+as `gp`. The function receives a model, adds the fitted logits to the
+data frame, and plots a line for each subgroup, using `annotate` to 
+identify the subgroup. I use the same markers as in the notes, but with
+what I hope is a better legend.
+
+So here's our first plot
+
+```{r}
+png("fig34r.png", width=500, height=400)
+pof(models[[13]], "Model with Age by Preferences Interacion")
+dev.off()
+```
+
+![](fig34r.png){.img-responsive .center-block .r}
+
+I often find that interpretation of the interactions is more direct if I
+combine them with the main effects. Here is the same model showing the
+difference in logits by desire for more children in each age group,
+reproducing the results in Table 3.15
+
+```{r}
+mint <- glm(Y~age + age:nomore + educ, family=binomial, data=cuse)
+exp(coef(mint))
+```
+
+We find 34% higher odds of using contraception among women with some education,
+compared to women with no education in the same age group and category
+of desire. We also see that the odds of using contraception among women
+who want no more children are higher than among women who want more
+children in the same age and category of education, 7% higher under age
+25, 38% higher at age 25-29, three times as high for women in their
+thirties, and four times as high among women in their forties.
+
+This model passes the conventional goodness of fit test and therefore
+provides a reasonable description of contraceptive use by age,
+education, and desire for more children.
+
+### All Three Two-Factor Interactions
+
+As explained in the notes, there is some evidence that education may
+interact with the other two variables. The model with all three
+two-factor interactions provides the best fit, with a deviance of 2.44
+on three d.f., but is substantially more complex.
+
+Rather than present parameter estimates, I will reproduce Figure 3.5,
+which provides some hints on how the model could be simplified. Thanks
+to our `pof` command this is now an easy task:
+
+```{r}
+png("fig35r.png", width=500, height=400)
+pof(models[[18]], "All Two-Factor Interactions")
+dev.off()
+```
+
+![](fig35r.png){.img-responsive .center-block .r}
+
+A picture is indeed worth a thousand words. We see that among women who
+want no more children, contraceptive use increases almost linearly (in
+the logit scale) with age, with no differences by education except in the
+oldest age group, where use flattens for women with no education. Among
+women who do want more children, contraceptive use is generally lower,
+and increases more slowly with age; there are some differences by education,
+and these are higher among older women. There's also a hint of
+curvature by age for women with no education who want more children.
+
+### A Parsimonious Model
+
+These observations suggest ways to simplify the model. The age
+interactions are quite simple: the increase with age is steeper among
+women who want no more children, and the difference by education is
+larger among women in their forties. Similarly, the educational
+difference is larger in use for spacing and among older women.
+
+One way to capture these features is to use a quadratic on age, allow
+the slope (but not the curvature) to vary by desire for more children,
+and introduce effects of education only for spacing and after age 40
+(and thus not for limiting before age 40). To facilitate interpretation
+of the resulting parameters I center age around 30:
+
+So here is a more parsimonious model
+
+```{r}
+cuse <- mutate(cuse, agemc = agem - 30, agemcsq=agemc^2,
+  eduspacers = as.numeric(educ==1 & nomore==0),
+  eduforties = as.numeric(educ==1 & age == "40-49"))
+parsi <- glm(Y~ agemc*nomore+ agemcsq+ eduspacers + eduforties,
+  family=binomial, data=cuse)
+parsi
+```
+
+This model has only seven parameters and a deviance of 5.9 on 9 d.f., so
+it is much simpler than the previous model and fits pretty well.
+Obviously we can't take the test seriously because we didn't specify
+these terms in advance, but the exercise shows how one can simplify a
+model by capturing its essential features. Before we interpret the
+coefficients let us check the fitted values
+
+```{r}
+png("fig35br.png", width=500, height=400)
+pof(parsi, "A Simplified Model")
+dev.off()
+```
+
+![](fig35br.png){.img-responsive .center-block .r}
+
+We see that the model provides almost the same fit as the much more
+complex model of the previous subsection.
+
+```{r}
+exp(coef(parsi)["agemc"])
+exp(coef(parsi)[c("nomore","agemc:nomore")])
+exp(coef(parsi)[c("eduspacers","eduforties")])
+```
+
+Returning to the parameter estimates,
+we see that contraceptive use generally increases with age,
+with an increment in the odds of about 2.5 percent per year at age 30 (less
+at younger and older ages, with differences noted below after age 40). Use
+is much higher among women who want no more children, with an odds ratio of
+2.7 at age 30, increasing about six percent per year of age. Women with
+some education are more likely to use contraception for spacing
+purposes, with an odds ratio of 1.5, and are also more likely to use for
+either spacing or limiting after age 40, with an odds ratio of 2.7
+(which makes the odds ratio by education for spacers after age 40 just
+above four).
+
+Alternative model simplifications are given in the notes.
+
+### Weighted Individual Data
+
+As promised, we show briefly how one can obtain the same results using a
+dataset with one row for each combination of predictors and response,
+with a column indicating the frequency of that combination, effectively
+simulating individual data.
+
+We will illustrate the equivalence using the model with a main effect of
+education and an  interaction between age and wanting no more children,
+which we kept as `mint`.
+
+```{r}
+cuse2 <- read_dta("https://grodri.github.io/datasets/cuse.dta")
+cuse2 <- mutate(cuse2, age=as_factor(age), educ=as_factor(educ), 
+  nomore=as.numeric(desire==1))
+mintlong <- glm(cuse~age + age:nomore + educ, weights=n, family=binomial, 
+	data=cuse2)
+mint <- glm(Y~age + age:nomore + educ, family=binomial, data=cuse)
+exp(coef(mint))
+```
+
+As you can see, the estimates and standard errors are exactly the same as
+before. The deviance is different because in this dataset the saturated
+model would have a separate parameter for each woman. We can reproduce
+the deviance of 12.63 on 7 d.f. given earlier, by computing the difference
+in deviances (or twice the difference in log-likelihoods) between the model
+with a three factor interaction and this model:
+
+```{r}
+   threeway = glm(cuse ~ age*nomore*educ, weights=n, family=binomial, data=cuse2)
+   data.frame( deviance = deviance(mintlong) - deviance(threeway),
+df = df.residual(mintlong) - df.residual(threeway))
+```
+
+Thus, working with grouped data gives exactly the same estimates as working
+with individual data, except of course for the deviances. Recall that
+deviances can be interpreted as goodness of fit tests only with grouped
+data, but differences in deviances between nested models can always be
+interpreted as likelihood ratio tests. We discuss how to test goodness of
+fit with individual data in [Section 3.8](c3s8).
+
+<small>Updated fall 2022</small>

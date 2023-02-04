@@ -1,0 +1,184 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 3.4 The Comparison of Several Groups
+
+We now consider the comparison of more than two groups. We will illustrate
+using the data on contraceptive use by age, where we compare four groups.
+
+.include style
+
+### A k-by-two Table
+
+These are the data on page 18 of the notes, entered as four age groups
+
+```{r}
+library(dplyr)
+cuse <- data.frame(matrix(c(
+1,  72, 325,
+2, 105, 299,
+3, 237, 375,
+4,  93, 101), 4, 3, byrow=TRUE))
+names(cuse) <- c("ageg", "users", "nonusers")
+cuse <- mutate(cuse, n = users + nonusers,
+	ageg = factor(ageg, labels=c("< 25","25-29","30-39","40-49")),
+	Y = cbind(users, nonusers))
+cuse
+```
+
+### The One-Factor Model
+
+Here is the model treating age as a factor with four levels, which is of
+course saturated for the data.
+
+```{r}
+mageg = glm(Y ~ ageg, family=binomial, data=cuse)
+summary(mageg)
+```
+
+Compare the parameter estimates with those on Table 3.5 of the notes.
+Can you obtain these estimates by hand directly from the raw
+frequencies? We see that the odds of using contraception increase
+steadily from one age group to the next.
+
+To test the significance of the age effects we can use a likelihood ratio test
+comparing this model with the null, or a Wald test. Let us start with the former.
+The `summary()` function reports the residual deviances for the null and
+current models, so the reduction in deviance is easily seen, but I will 
+calculate it explicitly for clarity.
+
+```{r}
+deviance(glm(Y ~ 1, family=binomial, data=cuse)) # minus 0
+```
+
+The value of 79.19 on 3 d.f. means that we can reject the hypothesis that
+the probability of using contraception is the same in the four age groups.
+
+Now for the Wald test, which is easily
+calculated from first principles using the coefficients and their variance matrix.
+Here's the test for the age effect on page 20 of the notes:
+
+```{r}
+b <- coef(mageg)[-1]
+V <- vcov(mageg)[-1,-1]
+t(b) %*% solve(V) %*% b 
+```
+
+Once again the likelihood ratio and Wald test are similar, but not identical.
+
+Finally, we will compute the fitted logits, which we will need later.
+We can do this using
+the `predict()` function, which makes predictions in the logit scale.
+
+```{r}
+cuse <- mutate(cuse, obslogit = predict(mageg)) # or qlogis(users/n)
+```
+
+### A One-variate Model
+
+We will now treat age as a covariate, using the mid-points of the four
+age groups; so we treat the group 15-24 as 20, 25-29 as 27.5, 30-39 as
+35 and 40-49 as 45. (If these don't look like mid-points to you, note
+that age is usually reported in completed years, so 15-24 means between
+15.0 and 25.0, and the mid-point is 20.0.)
+The easiest way to code the midpoints in this example is
+by using the age group numeric codes as indices into a vector of midpoints.
+
+```{r}
+cuse <- mutate(cuse, agem = c(20, 27.5, 35, 45)[as.numeric(ageg)])
+```
+
+We can now fit the model on page 20 of the notes, which has a linear
+effect of age:
+
+```{r}
+magem <- glm(Y ~ agem, family=binomial, data=cuse)
+summary(magem)
+exp(coef(magem)["agem"])
+```
+
+We see that older women are more likely to use contraception, and that
+the *odds* of using contraception are about six percent higher for every
+year of age. (This comes from exponentiating the coefficient of age,
+which is now measured in years.)
+
+We can formaly test the assumption of linearity using a likelihood
+ratio test to compare this model with the saturated model of the
+previous section. The test can be calculated using
+the `anova()` function, or calling `logLik()` directly.
+
+```{r}
+-2*(logLik(magem)-logLik(mageg))
+```
+
+The chi-squared statistic of 2.4 on one d.f. is not significant, indicating
+that  we have no evidence against the assumption of linearity, and can happily
+save two degrees of freedom. This statistic is, of course, the deviance
+for the model with a linear effect of age.
+
+We can also calculate the deviance "by hand" from first principles, using the
+"sum of observed times log(observed/expected)" formula . Just remember
+that you need to use observed and expected *counts* of both successes
+and failures, here users and non-users:
+
+```{r}
+mutate(cuse, pusers = fitted(magem)*n) |> 
+  summarize(dev = 2*sum(users*log(users/pusers) + 
+    (n-users)*log((n-users)/(n-pusers))))
+```
+
+### Observed and Fitted Logits
+
+The next step will be to compute fitted logits based on this model, and
+use them together with the observed logits calculated earlier to examine
+visually the adequacy of the linear specification, effectively
+reproducing Figure 3.2 in the notes. For added measure I will also
+consider a model with a quadratic term, centering age around 30 before
+squaring it, so the linear term reflects the slope at 30.
+
+```{r}
+library(ggplot2)
+cuse <- mutate(cuse, agemcsq = (agem - mean(agem))^2)
+magesq <- glm(Y ~ agem + agemcsq, family=binomial, data=cuse)
+b <- coef(magesq)
+f1 <- function(x) coef(magem)[1] + coef(magem)[2]*x
+f2 <- function(x) b[1] + b[2]*x + b[3]*(x-mean(cuse$agem))^2
+png("fig32r.png", width=500, height=400)
+ggplot(cuse, aes(agem, obslogit)) + geom_point() +
+  geom_function(fun=f1, color="blue") + 
+  geom_function(fun=f2, color="green") +
+  ggtitle("Figure 3.2: Observed and Fitted Logits By Age")
+dev.off()
+```
+
+![](fig32r.png){.img-responsive .center-block .r}
+
+The graph shows that the linear specification was adequate. There is a
+hint that a quadratic model might be better, particularly in terms of
+the fit for the oldest age group, but the quadratic term is not
+significant.
+
+You may wonder why I used functions to graph the fitted lines. Plotting
+the fitted values joined by line segments works fine for the linear model,
+but doesn't reflect well the curvilinearity of the quadratic model,
+which is better represented using a function based on the coefficients.
+
+This analysis gives us a quick indication of whether we could treat age
+linearly if we were working with individual data and had the actual ages
+of the 1607 women. It is not equivalent, however, because we have
+grouped age, and therefore treated all women men aged 25-29 as if they
+were age 27.5. With individual data some would be 25, some 26, etc.
+
+You may also wonder why we were able to do a likelihood ratio test, when
+a model treating age linearly is usually not nested in a model that
+treats it as a factor. The answer is that in this case both
+specifications are applied to grouped data. You can view the linear
+model as imposing constraints, where the differences betwen the age
+groups are proportional to the difference in years between their
+midpoints. Alternatively, you can view the model that treats age as four
+groups as equivalent to having linear, quadratic, and cubic terms
+on the midpoints. Go ahead, try it. I'll wait.
+
+<small>Updated fall 2022</small>

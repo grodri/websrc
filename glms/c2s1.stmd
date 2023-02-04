@@ -1,0 +1,54 @@
+
+# 2. Linear Models {#c2s1 .first}
+
+We start with the linear models in Chapter 2 of the lecture notes,
+showing how to use the
+`regress` command in Stata
+to fit regression, analysis of variance, and analysis of covariance models.
+
+## 2.1 The Program Effort Data
+
+For a brief description of the program effort data see the lecture notes
+or point your browser to the datasets page.
+All datasets used in the course are in plain text format, and they are also
+available as Stata system files. Both formats can be read directly from the web.
+
+```s
+	use https://grodri.github.io/datasets/effort, clear
+```
+
+Let us list the data to check that we got them OK.
+
+```s
+	list country setting effort change, clean
+```
+
+As you can see, we have 20 observations on three variables:  social `setting`,
+family planning `effort`, and fertility `change`.
+
+The next thing we want to do is plot the data for a closer look. The importance
+of becoming familiar with your data before undertaking sophisticated analyses
+cannot be over-emphasized. Let us create scatterplots of all pairs of variables,
+reproducing Figure 2.1 in the notes.
+
+```s
+	graph matrix change setting effort, ///
+	  title("Figure 2.1: Scatterplot Matrix")
+	graph export fig21.png, width(600) replace
+```
+
+![](fig21.png){.img-responsive .center-block .stata}
+
+After generating the graph you can print it using the command `graph print`, 
+save it in Stata's own format using `graph save`, or export it into other 
+formats using `grap export`. I exported the graph to <u>p</u>ortable 
+<u>n</u>etwork <u>g</u>raphics (PNG) format for inclusion on this 
+web page. Word users may be better off exporting to <u>w</u>indows
+<u>m</u>etafile <u>f</u>ormat (WMF) or the enhanced variant (EMF). 
+LaTeX users may prefer to save directly into PDF format.
+
+Your graph may look slightly different than mine, depending on the
+*scheme* you use. The Stata default is called `s2color`, but these logs 
+use `plottig`. Type `help scheme` if you are interested in this subject.
+
+<small>Updated fall 2022</small>

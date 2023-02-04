@@ -1,0 +1,249 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+# 4. Poisson Models for Counts {#c4s1 .first}
+
+This unit illustrates the use of Poisson regression for modeling count data.
+
+## 4.3 A Poisson Model for Counts
+
+We will use the data from Fiji on children ever born that appear on
+Table 4.1 of the lecture notes. The data are available in the datasets
+section in both plain text and Stata formats. We will read the Stata file:
+
+```{r}
+library(haven)
+ceb <- read_dta("https://grodri.github.io/datasets/ceb.dta")
+head(ceb)
+```
+
+The file has 70 observations, one for each cell in the table. Each
+observation has a sequence number, numeric codes for marriage duration,
+residence and education, the mean and variance of children ever born,
+and the number of women in the cell.
+
+### Mean-Variance Relationship
+
+We start by doing Figure 4.1, plotting the cell variances versus the
+cell means using a log-log-scale for cell with at least 20 cases.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+ceb20 <- filter(ceb, n > 20)
+f <- function(x) x
+png(file="c4fig1r.png", height=400, width=600)
+ggplot(ceb20, aes(mean, var)) + geom_point() + 
+  geom_function(fun=f) +  coord_trans(x="log", y="log") +  
+  ggtitle("Figure 4.1. Mean-Variance Relationship", 
+    subtitle="Children Ever Born in Fiji, 1976")
+dev.off()
+```
+
+![](c4fig1r.png){.img-responsive .center-block .r}
+
+Clearly the variance increases with the mean. Most of the points lie
+below the 45 degree line, indicating that the variance is not exactly
+equal to the mean. Still, the assumption of proportionality brings us
+much closer to the data than the assumption of constant variance.
+
+### Response, Offset and Predictors
+
+The dataset does not have information about the number of children ever
+born (CEB) to each woman, but it turns out that we can still model the mean
+by working with the cell totals and introducing the log of the number of
+women in the cell as an *offset*.
+
+If the number of CEB to *one* woman in a given cell is a
+Poisson random variable with mean (and variance) $\mu$, then the number born
+to all *n* women in that cell is a Poisson r.v. with mean (and variance)
+$n\mu$. The log of the expected sum is $\log(n) + \log(\mu)$, and consists of
+a known offset plus the quantity we are interested in modeling. See the
+notes for further details
+
+We therefore start by computing the outcome, the total CEB in each cell,
+and the offset.
+We also make sure the discrete variables read as "labeled" by `haven` 
+are treated as factors.
+
+```{r}
+ceb <- mutate(ceb, y = round(mean * n), os = log(n),
+  dur=as_factor(dur), res=as_factor(res), educ=as_factor(educ))
+```
+
+### The Null Model
+
+We are ready to fit the null model, which has an offset but no
+predictors.
+
+```{r}
+m0 <- glm(y ~ 1, family=poisson, offset=os, data=ceb)
+m0
+exp(coef(m0))
+log(weighted.mean(ceb$mean, ceb$n))
+```
+
+The constant is the log of the mean number of children ever born.
+Exponentiating we see that the estimated mean is almost four children
+per woman. The estimate coincides with the sample mean, as we verified
+by averaging the cell means with the number of women as a frequency weight.
+
+The deviance of 3,732 on 69 d.f. gives a clear indication that the model
+doesn't fit the data. The hypothesis that the expected number of CEB is
+the same for all women regardless of marriage duration, residence and
+education, is soundly rejected,
+
+### One-Factor Models
+
+Next we fit the three one-factor models, starting with residence:
+
+```{r}
+mr <- glm(y ~ res, family=poisson, offset=os, data=ceb)
+mr	
+exp(coef(mr))
+anova(m0, mr)
+```
+
+The estimates show that women in urban and rural areas have on average
+16 and 26% more children than women in Suva. The model chi-squared of 73
+on 2 d.f. tells us that this model is a significant improvement over the
+null. The deviance, still in the thousands, tells us that this model is
+far from fitting the data.
+
+Now for education
+
+```{r}
+me <- glm(y ~ educ, family=poisson, offset=os, data=ceb)
+me	
+exp(coef(me))
+anova(m0, me)
+```
+
+The estimates show that the number of CEB declines substantially with
+education. Women with secondary education or more have 71% fewer
+children than women with no education (or only 29% as many). The
+educational differential is highly significant, but this model doesn't
+fit the data.
+
+Finally, here's duration:
+
+```{r}
+md <- glm(y ~ dur, family=poisson, offset=os, data=ceb)
+md	
+exp(coef(md))
+anova(m0, md)
+```
+
+Not surprisingly, the number of CEB is much higher for women who have
+been married longer. This is by far the most important predictor of CEB,
+with a chi-squared of 3,566 on just 5 d.f. In fact, a demographer
+wouldn't even have looked at models that did not include a control for
+duration of marriage. It's nice to see that Poisson regression can
+uncover the obvious :) Note that this model still doesn't fit the data.
+
+The deviances given in this section are pretty close to the deviances in
+Table 4.3 of the notes. You will notice small differences due to the use
+of different rounding procedures. In the notes we multiplied the mean
+CEB by the number of women and retained a few decimals. Here we rounded
+the total number of CEB to the nearest integer. If you omit the rounding
+you will reproduce the results in the notes exactly.
+
+### Two-Factor Models
+
+We now consider models that take two of the three factors into account.
+Following the notes we consider only models that include duration of
+marriage, an essential control when we study cumulative fertility. This
+leaves two models with main effects of two factors, and another two
+models that add one interaction.
+
+Because we are only interested in deviances I will run the estimation
+commands quietly.
+
+So here are the additive models
+
+```{r}
+mdr <- glm(y ~ dur + res, family=poisson, offset=os, data=ceb)
+deviance(mdr)
+mde <- glm(y ~ dur + educ, family=poisson, offset=os, data=ceb)
+deviance(mde)
+```
+
+And here are the models with one interaction
+
+```{r}
+mdxr <- glm(y ~ dur * res, family=poisson, offset=os, data=ceb)
+deviance(mdxr)
+mdxe <- glm(y ~ dur * educ, family=poisson, offset=os, data=ceb)
+deviance(mdxe)	
+```
+
+The best fit so far is the model that includes duration and education,
+but it exhibits significant lack of fit with a chi-squared of 84.5 on 46
+d.f.
+
+### The Three-Factor Additive Model
+
+We are now ready to look at models that include all three factors. We
+start with the additive model.
+
+```{r}
+mder <- glm(y ~ dur + res + educ, family=poisson, offset=os, data=ceb)
+summary(mder)
+exp(coef(mder))
+```
+
+This model passes the goodness of fit hurdle, with a deviance of 70.67
+on 59 d.f. and a corresponding P-value of 0.14, so we have no evidence
+against this model.
+
+Briefly, the estimates indicate that the number of CEB increases rapidly
+with marital duration; in each category of residence and education women
+married 15-19 years have five times as many children as those married
+less than five years. Women who live in urban and rural areas have 12%
+and 16% more children than women who live in Suva and have the same
+marriage duration and education. Finally, more educated women have fewer
+children, as women with secondary or more education have on average 27%
+fewer children than women with no education who live in the same type of
+place of residence and have been married just as long.
+
+### Three-Factor Models with Interactions
+
+We now put the additive model to some "stress tests" by considering
+all possible interactions.
+
+```{r}
+models <- c("dur+res*educ","dur*res+educ","dur*educ+res",
+  "(dur+res)*educ","(dur+educ)*res","dur*(res+educ)",
+  "dur*res*educ - dur:res:educ")
+dd <- matrix(0,length(models),2)
+i <- 1
+for(model in models) {
+  formula <- paste("y ~",model)
+  m <- glm(formula, family=poisson, offset=os, data=ceb)
+  dd[i,] <- c(deviance(m), m$df.residual)
+  i <- i+1
+}
+data.frame(model=models, deviance=round(dd[,1],2), df=dd[,2],
+  pval=round(pchisq(dd[,1],dd[,2],lower.tail=FALSE),4))
+```
+
+These calculations complete Table 4.3 in the notes. I reported the
+deviances for consistency with the notes, but could just as well have
+reported likelihood ratio tests comparing each of these models to the
+additive model. Make sure you know how to use the output to test, for
+example, whether we need to add a duration by education interaction. It
+should be clear from the list of deviances that we don't need to add
+any of these terms. We conclude that the additive model does a fine job
+indeed.
+
+It's important to note that the need for interactions depends exactly
+on what's being modeled. Here we used the log link, so all effects are
+*relative*. In this scale no interactions are needed. If we used the
+identity link we would be modeling the actual number of children ever
+born, and all effects would be *absolute*. In that scale we would need,
+at the very least, interactions with duration of marriage. See the notes
+for further discussion.
+
+<small>Updated fall 2022</small>

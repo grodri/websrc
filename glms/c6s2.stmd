@@ -1,0 +1,146 @@
+
+## 6.2 The Multinomial Logit Model {#c6s2 .first}
+
+Make sure you read the data as shown in [Section 6.1](c6s1).
+
+```s
+	use elsalvador1985, clear
+```
+
+We start with multinomial logit models treating age as a predictor and
+contraceptive use as the outcome.
+
+### Age as a Factor
+
+Obviously the model that treats age as a factor with 7 levels is
+saturated for this data. We can easily obtain the log-likelihood, and
+predicted values if we needed them.
+[By default `multinom` picks the first response category as the reference. 
+We take care of that by putting "no method" first.`]{.r}'
+
+```s
+	mlogit cuse i.ageg [fw=cases]
+	estimates store sat
+	scalar ll_sat = e(ll)
+```
+
+### Linear and Quadratic Effects
+
+Following the notes, we will consider a model with linear and quadratic
+effects of age. To this end we define the midpoints of age and its
+square. For consistency with the notes we will not center age before
+computing the square, although I generally recommend that.
+We use the `baseoutcome()` option to define "no method" as the baseline 
+or reference outcome.
+
+```s
+	gen age = 12.5 + 5*ageg
+	gen agesq = age^2
+	mlogit cuse age agesq [fw=cases], baseoutcome(3)
+	di -0.5*_b[sterilization:age]/_b[sterilization:agesq]
+	di -0.5*_b[other_method:age] /_b[other_method:agesq]
+```
+
+Compare the parameter estimates with Table 6.2 in the notes. As usual
+with quadratics, it is easier to plot the results, which we do below. The
+log-odds of using sterilization rather than no method increase rapidly
+with age to reach a maximum at 36.5. The log-odds of using a method
+other than sterilization rather than no method, increase slightly to
+reach a maximum at age 27.8 and then decline. (The turning points were
+calculated by setting the derivatives to zero.)
+
+The model chi-squared, which as usual compares the current and null
+models, indicates that the hypothesis of no age differences in
+contraceptive choise is soundly rejected with a chi-squared of 500.6 on
+4 d.f. To see where the d.f. come from, note that the current model has
+six parameters (two quadratics with three parameters each) and the null
+model of course has only two (the two constants).
+
+We don't get a deviance, but Stata does print the log-likelihood. For
+individual data the deviance is *-2logL*, and for the grouped data in
+the original table the deviance is twice the differences in
+log-likelihoods between the saturated model and this model
+
+```s
+	lrtest . sat 
+```
+
+The deviance of 20.47 on 8 d.f. is significant at the 1% level, so we
+have evidence that this model does not fit the data. We explore the lack
+of fit using a graph.
+
+### Plotting Observed and Fitted Logits
+
+Let us do Figure 6.1, comparing observed and fitted logits.
+
+We start with the `predict` post-estimation command, which can evaluate 
+logits, with the `xb` option, or probabilities, with the [`p`]{.underline}`r`
+option, the default.
+
+If you are predicting probabilities you usually specify one output
+variable for each possible outcome. If you specify just one variable
+Stata predicts the first outcome, unless you use the `outcome()` option
+to specify which outcome you want to predict.
+
+If you are predicting logits you *must* do them one at a time, so you
+will usually specify the outcome you want. Here we compute the logits
+for sterilization vs no method and for other method vs no method:
+
+```s
+	predict fit1, outcome(1) xb
+	predict fit2, outcome(2) xb
+```
+
+For the observed values we could restore the saturated model and follow
+the same procedure, but we can also do the calculation "by hand"
+taking advantage of the fact that the data are ordered by contraceptive
+use within each age group:
+
+```s
+	gen obs1 = log(cases[_n]/cases[_n+2]) if cuse==1
+	gen obs2 = log(cases[_n]/cases[_n+1]) if cuse==2
+```
+
+We plot observed versus fitted logits, using markers for the
+observed values and smooth curves for the quadratics.
+
+```s
+	graph twoway (scatter obs1 age, mc(green)) ///
+      (scatter obs2 age, mc(red) ms(t)) ///
+	  (mspline  fit1 age, bands(7) lc(green) lw(medthick)) ///
+	  (mspline  fit2 age,  bands(7) lc(red) lw(medthick) ) ///
+	  , ytitle("log-odds (no method as base)") ///
+	    title("Figure 6.1:  Contraceptive Use by Age")  ///
+	    legend(order(1 "sterilization"  2 "Other method") ring(0) pos(5))
+	graph export fig61.png, width(500) replace
+```
+
+![](fig61.png){.img-responsive .center-block .stata}
+
+The graph suggests that most of the lack of fit comes from
+overestimation of the relative odds of being sterilized compared to
+using no method at ages 15-19. Adding a dummy for this age group
+confirms the result:
+
+```s
+	gen age1519 = ageg==1
+	quietly mlogit cuse age agesq age1519 [fw=cases]
+	lrtest . sat
+```
+
+The deviance is now only 12.10 on 6 d.f., so we pass the goodness of fit
+test. (We really didn't need the dummy in the equation for other
+methods, so the gain comes from just one d.f.)
+
+An important caveat with multinomial logit models is that we are
+modeling odds or *relative* probabilities, and it is always possible for
+the odds of one category to increase while the probability of that
+category declines, simply because the odds of another category increase
+more. To examine this possibility one can always compute predicted
+probabilities.
+
+We pursue these issues at greater length in a discussion of the interpretation
+of multinomial logit coefficients, including the calculation of continuous and
+discrete marginal effects, in [an analysis available here](mlogit).
+
+<small>Updated fall 2022</small>

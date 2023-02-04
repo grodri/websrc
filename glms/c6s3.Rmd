@@ -1,0 +1,21 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 6.3 The Conditional Logit Model {#c6s3 .first}
+
+Stata and R are also able to fit the more general McFadden conditional logit
+model discussed in the notes, a random-utility model where the expected
+utility of a choice may depend on characteristics of the alternatives,
+characteristics of the people making the choices, and variables which
+are specific to a combination of person and alternative, for example
+distance to a cinema. The special case where all predictors are
+individual characteristics is the multinomial logit model of the
+previous section.
+
+If you are interested in this type of model I recommend that you download 
+the packages `mlogit` and/or `mnlogit` and study their documentation. 
+The more general model is beyond the scope of the course.
+
+<small>Updated fall 2022</small>

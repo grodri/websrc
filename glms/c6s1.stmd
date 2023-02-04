@@ -1,0 +1,30 @@
+
+# 6. Multinomial Response Models {#c6s1 .first}
+
+This section deals with regression models for discrete data with more
+than two response categories, where the assumption of a multinomial
+distribution is appropriate. We will consider multinomial logits for
+nominal data, and ordered logit models for ordinal data, with a
+brief mention of alternative-specific conditional logit models. We
+will also consider sequential logit models.
+(In line with the current syllabus we are skipping log-linear
+models for contingency tables, and thus their relationship with
+multinomial logit models.)
+
+## 6.1 The Nature of Multinomial Data
+
+We start by reading the data on contraceptive choice by age for currently
+married women in El Salvador, 1985, found in Table 6.1 of the lecture notes.
+The data are in "long" format with one row for each combination of predictor
+and response, showing the age group, method choice, and number of cases.
+
+```s
+	use elsalvador1985, clear
+	list, sep(3)
+```
+
+With only one predictor, this example affords limited opportunities for
+interpreting coefficients, but will allow us to focus on the outcome and
+the comparisons underlying each type of model.
+
+<small>Updated fall 2022</small>

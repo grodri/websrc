@@ -1,0 +1,159 @@
+
+## 6.A Interpreting Multinomial Logit Coefficients {#mlogit .first}
+
+Let us consider Example 16.1 in Wooldridge (2010), concerning school and
+employment decisions for young men. The data contain information on
+employment and schooling for young men over several years. We will work
+with the data for 1987.
+
+The outcome is status, coded 1=in school, 2=at home (meaning not in
+school and not working), and 3=working. The predictors are education, a
+quadratic on work experience, and an indicator for black.
+
+We read the data from the Stata website, keep the year 1987, drop
+missing values, label the outcome, and fit the model.
+
+```s
+	use https://www.stata.com/data/jwooldridge/eacsap/keane, clear
+	keep if year == 87
+	drop if missing(status)
+	label define status 1 "school" 2 "home" 3 "work"
+	label values status status
+	mlogit status educ exper expersq black, base(1)
+```
+
+The results agree exactly with Table 16.1 in Wooldridge (2010, page 645).
+
+### Relative Probabilities
+
+Let us focus on the coefficient of black in the work equation, which is
+0.311. Exponentiating we obtain
+
+```s
+	di exp( _b[work:black] )
+```
+
+Thus, the relative probability of working rather than being in school is
+37% higher for blacks than for non-blacks with the same education and
+work experience. (Relative probabilities are also called relative odds.)
+
+A common mistake is to interpret this coefficient as meaning that the
+probability of working is higher for blacks. It is only the *relative*
+probability of work over school that is higher. To obtain a fuller
+picture we need to consider the second equation as well. The coefficient
+of black in the home equation is 0.813. Exponentiating, we obtain
+
+```s
+	di exp(_b[home:black] )
+```
+
+Thus, the relative probability of being at home rather than in school
+for blacks is more than double the corresponding relative probability
+for non blacks with the same education and work experience.
+
+In short, black is associated with an increase in the relative
+probability of work over school, but also a much large increase in the
+relative probability of home over school. What happens with the actual
+probability of working depends on how these two effects balance out.
+
+### Marginal Effects (Continuous)
+
+To determine the effect of black in the probability scale we need to
+compute marginal effects, which can be done using continuous or discrete
+calculations.
+
+The continuous calculation is based on the derivative of the probability
+of working with respect to a predictor. Let $\pi_{ij}=\Pr\{Y_i=j\}$
+denote the probability that the i-th observation
+follows on the j-th category, which is given by
+$$
+\pi_{ij} = \frac{e^{x_i'\beta_j}}{\sum_r e^{x_i'\beta_r}}
+$$
+where $\beta_j = 0$ when j is the baseline or reference outcome, in this
+case school.
+
+Taking derivatives w.r.t. the k-th predictor we obtain, after some
+simplification
+$$
+ frac{\partial\pi\_{ij}}{\partial x_{ik}} =
+\pi_{ij} ( \beta\_{jk} - \sum_r \pi_{ir} \beta_{rk} )
+$$
+noting again that the coefficient is zero for the baseline outcome.
+
+To compute these we predict the probabilities and then apply the
+formula.
+
+```s
+	predict p1 p2 p3, pr
+	gen me1 = p1*(            -(p2*_b[2:black] + p3*_b[3:black]))
+	gen me2 = p2*(_b[2:black] -(p2*_b[2:black] + p3*_b[3:black]))
+	gen me3 = p3*(_b[3:black] -(p2*_b[2:black] + p3*_b[3:black]))
+	sum me*
+```
+
+We find that the average marginal effect of black on work is actually
+negative: -0.0406. This means that the probability of working is on
+average about four percentage points lower for blacks than for
+non-blacks with the same education and experience.
+
+Stata can do this calculation using the `dydx()` option of the `margins`
+command. Here's the marginal effect for work:
+
+```s
+	margins, dydx(black) pr(out(3))         
+```
+
+This agrees exactly with our hand calculation. 
+Note that Stata uses the derivative for continuous variables, and a discrete 
+difference for factor variables, which we consider next.
+
+### Marginal Effects (Discrete)
+
+For the discrete calculation we compute predicted probabilities by
+setting ethnicity to black and then to non-black and averaging:
+
+```s
+	gen keep_black = black
+	quietly replace black = 1
+	predict p11 p12 p13, pr
+	sum p1?
+	scalar w1 = r(mean) 
+	quietly replace black = 0 
+	predict p01 p02 p03, pr 
+	sum p0?
+	di w1 - r(mean)
+	quietly replace black = keep_black
+```
+
+We find that the average probability of working is 0.7275 if black and
+0.7710 if not black, a difference of -0.0435, so the probability of
+working is on average just over four percentage points lower for blacks.
+
+Stata can calculate the predictive margins if you specify black as a
+factor variable when you fit the model, and then issue the command
+`margins black`. This only works for factor variables.
+
+```s
+	quietly mlogit status educ exper expersq i.black, base(1)
+	margins black, pr(out(3))         
+```
+
+The marginal effect can then be obtained as a discrete difference.
+
+```s
+	margins, dydx(black) pr(out(3))
+```
+
+These results agree exactly with our hand calculations.
+
+The take away conclusion here is that multinomial logit coefficients can
+only be interpreted in terms of relative probabilities. To reach
+conclusions about actual probabilities we need to calculate continuous
+or discrete marginal effects.
+
+### Reference
+
+Wooldridge, J. M. (2010). *Econometric Analysis of Cross Section and Panel
+Data*. Second Edition. Cambridge, Massachussets: The MIT Press.
+
+<small>Updated fall 2022</small>

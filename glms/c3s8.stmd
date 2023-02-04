@@ -1,0 +1,196 @@
+
+## 3.8 Regression Diagnostics for Binary Data
+
+We now consider regression diagnostics for binary data, focusing on
+logistic regression models. We will work with the additive model of
+contraceptive use by age, education, and desire for more children, which
+we know to be inadequate.
+
+Stata offers several tools as part of the `predict` and `estat`
+post-estimation commands. These are available after issuing a `logit` or
+`logistic` command. We continue to use `glm`, which offers many options.
+
+When working with individual data Stata relies strongly on the concept
+of covariate patterns, grouping together all observations that share the
+same values of the covariates. In particular, it defines as saturated a
+model that has a separate parameter for each covariate pattern, not for
+each observation. We will consider a model with individual data soon.
+
+### The Additive Model
+
+So here's the additive model for the contraceptive use data.
+
+```s
+	use https://grodri.github.io/datasets/cusew, clear
+	gen n = users + nonusers
+	label define nomore 0 "more" 1 "nomore", modify // shorter
+	label define education 0 "lower primary-" 1 "upper primary+", modify
+	glm users i.age educ nomore, family(binomial n)
+```
+
+The additive model has a deviance of 29.92 on 10 d.f. when we define the
+saturated model in terms of the 16 groups of women.
+
+### Deviance and Pearson Residuals
+
+The `predict` command can be used to obtain predicted probabilities,
+deviance residuals and Pearson residuals.
+These residuals are the signed square roots of the contributions to the model
+deviance or Pearson chi-squared statistic
+
+```s
+	predict fv, mu      // fitted value
+	gen pfit = fv/n     // probability
+	predict dr, dev     // deviance residual
+	predict pr, pear    // Pearson residual
+```
+
+We will verify that if we square these residuals and sum them over the
+groups we get the deviance and Pearson chi-squared statistics.
+
+```s
+	gen drsq = dr^2
+	quietly sum drsq
+	di r(sum)
+	gen prsq = pr^2
+	quietly sum prsq
+	di r(sum)
+```
+
+So the deviance is 29.9 as noted at the outset, and Pearson's
+chi-squared is 28.3. We now list all groups with squared deviance
+residuals above 3.84 (same as absolute values above 1.96).
+
+```s
+	gen pobs = users/n
+	format %5.3f pobs pfit
+	format %6.2f pr dr
+	list age educ nomore pobs pfit pr dr if pr^2 > 3.84
+```
+
+We see that a substantial part of the deviance of 29.92 comes from three
+groups where the model overestimates the probability of using contraception:
+young women (under age 25 and aged 25-29) with upper primary or more, who want
+no  more children;  and women in their forties with lower primary or less who
+want more children.
+
+### Leverage and Influence
+
+Pregibon (1981) extended regression diagnostics to GLMs and introduced a
+weighted hat matrix, with diagonal elements representing the leverages.
+These can be calculated with the `hat` option of the `predict` command. 
+(The corresponding option after a `logit` command is `lev`.)
+
+```s
+	predict lev, hat
+	sum lev
+	gsort -lev
+	format %5.3f lev
+	list n age educ nomore pobs pfit lev in 1/3
+```
+
+The three cells with potentially the largest influence in the fit are
+young women with upper primary or more who want more children, and older
+women with lower primary or less who want no more children.
+
+The elements of the hat matrix can be used to standardize Pearson (or
+deviance) residuals and to compute influence statistics. These are
+easily done "by hand". ([The `rs` option of `predict` after `logit`
+calculates standardized Pearson residuals.]{.stata})
+
+```s
+	gen ps = pr/sqrt(1-lev)
+	gen ds = dr/sqrt(1-lev)
+	gen sc = ps^2
+	gsort -sc
+	format %6.2f ps ds
+	list n age educ nomore pobs pfit ps ds in 1/3
+```
+
+We identify the same three observations picked up by the unstandardized
+residuals, but the absolute values are now closer to three, highlighting
+the lack of fit to these groups.
+
+The `cook` option of the `predict` command after `glm` computes the one-step 
+approximation of Cook's distance. (The option is called `db` in `predict` after 
+`logit`.) This statistic is called Pregibon's influence statistic in the Stata 
+documentation, and their calculation differs from the formula on page 49 of 
+the notes in that it leaves out the number of parameters p. This happens after 
+`logit` but not after`glm`.
+
+```s
+	predict cook, cook
+	sum cook
+	gsort -cook
+	format %6.2f cook
+	list n age educ nomore pobs pfit lev cook in 1/3
+```
+
+The group with the highest leverage turned out to be also the most
+influential: women under 25, with upper primary or more, who want more
+children.
+
+### Goodness of Fit
+
+With grouped data, or even with individual data where the number of
+covariate patters is small, the deviance provides a goodness of fit
+test. But what if you have truly individual data with many covariate
+patterns?
+
+Hosmer and Lemeshow (1980) have proposed a goodness of fit for logistic
+regression models that can be used with individual data. The basic idea
+is to create groups using predicted probabilities, and then compare
+observed and fitted counts of successes and failures on those groups
+using a chi-squared statistic. Simulation has shown that with g groups
+the large sample distribution of the test statistic is approximately
+chi-squared with g-2 degrees of freedom.
+
+Let us apply this test to the Hosmer and Lemeshow low birth weight data,
+which happen to be available in the Stata website.
+
+```s
+	use https://www.stata-press.com/data/r13/lbw, clear
+	desc, s
+```
+
+The outcome is an indicator of low birth weight (< 2500 grams). The
+predictors include mother's age, her weight at the last menstrual
+period, and indicators of ethnicity, smoking during pregnancy, history
+of premature labor, history of hypertension, and presence of uterine
+irritability. Here's the fit
+
+```s
+	logit low age lwt i.race smoke ptl ht ui
+	estat gof
+```
+
+The sample of 189 observations has 182 different covariate patterns, so
+we can't test goodness of fit this way.
+We try instead the Homer-Lemeshow test asking for 10 groups. We also specify 
+the `table` option to get more detailed information.
+
+```s
+	estat gof, group(10) table
+```
+
+We get a Hosmer-Lemeshow chi-squared value of 9.65 on 8 d.f. with a
+p-value of 0.2904, and thus no evidence of lack of fit.
+
+Paul Allison (2013) has noted that the Hosmer-Lemeshow test is sensitive to
+the number of groups used. He provides an example where a test with 10 groups
+yields a p-value just below 0.05, but working with 9 or 11 groups raises it to
+0.11 and 0.64 respectively. In this example the p-values are also quite
+different, but the conclusion does not change.
+
+### References
+
+Allison, P. (2013). Why I Don't Trust the Hosmer-Lemeshow Test for Logistic
+Regression. Online at <https://statisticalhorizons.com/hosmer-lemeshow/>.
+
+Hosmer D.W. and Lemeshow S. (1980) A goodness-of-fit test for the multiple
+logistic regression model. *Communications in Statistics*,__A10__:1043-1069.
+
+Pregibon, D. (1981) Logistic Regression Diagnostics. *The Annals of Statistics*,
+__9__(4): 705-724. [JSTOR](https://www.jstor.org/stable/2240841).
+
+<small>Updated fall 2022</small>

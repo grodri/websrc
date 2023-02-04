@@ -1,0 +1,116 @@
+
+## 8.2 Longitudinal Linear Model
+
+Here's an interesting example where fixed-effects gives a very
+different answer from OLS and random-effects models. The data come from
+Wooldridge's text and concern state-level data on the percentage of
+births classified as low birth weight and the percentage of the
+population in the AFDC welfare program in 1987 and 1990. The data are
+available from the Stata website.
+
+```s
+	use https://www.stata.com/data/jwooldridge/eacsap/lowbirth, clear
+```
+
+### OLS
+
+Here's a regression of low birth weight on AFDC with a dummy for 1990
+(time trends) and controls for log physicians per capita, log beds per
+capita, log per capita income, and log population.
+
+```s
+	reg lowbrth d90 afdcprc lphypc lbedspc lpcinc lpopul
+```
+
+It seems as if AFDC has a pernicious effect on low birth weight: each
+percent in AFDC is associated with an extra 1/10-th of one percent with
+low birth weight. A scatterplot shows a positive correlation:
+
+```s
+	twoway (scatter lowbrth afdcprc if year==1987, mcolor(blue) ) ///
+	  (scatter lowbrth afdcprc if year==1990, mcolor(red)  ) , ///
+	  legend( lab(1 "1987") lab(2 "1990") ring(0) pos(5) ) ///
+	  title(Low Birth Weight and AFDC Participation)
+      graph export afdc1.png, width(500) replace
+```
+
+![](afdc1.png){.img-responsive .center-block .stata}
+
+### Random-Effects
+
+Fitting a random-effects model improves things a bit.
+I first `encode` the state abbreviation to have a numeric id variable. For 
+this dataset the results with `xtreg` and `mixed` are a bit different. I report 
+the results for `mixed`, which agrees with R.
+
+```s
+	encode stateabb, gen(stateid)
+	mixed lowbrth d90 afdcprc lphypc lbedspc lpcinc lpopul || stateid:
+	estat icc
+```
+
+The effect of AFDC is now negative, as we would expect, but not
+significant. The intra-state correlation over the two years is a
+remarkable 0.96; persistent state characteristics account for most of
+the variation in the percent with low birth weight after controlling for
+AFDC participation and all other variables.
+
+### Fixed-Effects
+
+Fitting a fixed-effects model gives much more reasonable results:
+
+```s
+	xtreg lowbrth d90 afdcprc lphypc lbedspc lpcinc lpopul, i(stateid) fe
+```
+
+Now every percent increase in AFDC is associated with a *decline* of
+almost 2/10-th of a percentage point in low birth weight. The
+coefficient of log physicians per capita is highly suspect; this is due
+to high correlation with the other predictors, most notably the log of
+population. In fact once we have state fixed effects we don't really
+need the other controls:
+
+```s
+	xtreg   lowbrth d90 afdcprc, i(stateid) fe
+```
+
+One way to see what's going on is to compute and plot differences in the
+percent with low birth weight and the percent with AFDC. We
+could reshape to wide, but I will keep the data in long format:
+
+```s
+	sort stateid year
+	by stateid (year): gen dlowbrth = lowbrth[2]-lowbrth[1]
+	by stateid (year): gen dafdcprc = afdcprc[2]-afdcprc[1]
+	replace dlowbrth = . if year==1987
+	replace dafdcprc = . if year==1987
+	twoway (scatter dlowbrth dafdcprc) (lfit dlowbrth dafdcprc), ///
+	  legend(off) xtitle(Change in AFDC) ytitle (Change in low birth weight) ///
+	  title(Changes in Low Birth Weight and in AFDC Participation)
+	graph export afdc2.png, width(500) replace
+```
+
+![](afdc2.png){.img-responsive .center-block .stata}
+
+### FE and Differencing
+
+Let us verify that we get the same results using regression on the
+differences. The constant is the coefficient of `d90` and the slope is
+the coefficient of `afdcprc`:
+
+```s
+	reg dlowb dafdc 
+```
+
+### FE and Dummy Variables
+
+Finally we verify that we get the same results using state dummies.
+
+```s
+	quietly reg lowbrth d90 afdcprc i.stateid
+	estimates table, keep(d90 afdcprc ) se
+```
+
+I just omitted from the listing the state dummies
+
+<small>Updated fall 2022</small>

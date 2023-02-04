@@ -1,0 +1,165 @@
+
+# 3. Logit Models {#c3s1 .first}
+
+In this chapter we discuss fitting logistic regression models by
+maximum likelihood.
+Stata has several commands that can be used to accomplish this task, including 
+`logit` and `logistic` for individual data, and `glm` with the `binomial` family 
+for both individual and grouped data. We will consider all three.
+
+## 3.3 The Comparison of Two Groups
+
+Our discussion starts with simple comparisons of proportions in two groups.
+For simplicity we use grouped data, but the key ideas apply to individual
+data as well.
+
+### A 2 by 2 Table
+
+Consider the data on contraceptive use by desire for more children on
+Table 3.2 (page 14 of the notes). We can read these data into our software
+as 2 binomial observations. To make life easier, I will enter desire for more
+children as a dummy variable that takes the value 1 for women who want
+no more children and 0 otherwise.
+
+```s
+	clear
+	input nomore users n
+      0 219   972
+      1 288   635
+	end
+```
+
+### Testing Homogeneity
+
+Let us start by fitting the null model. With grouped binomial data
+the outcome is the number of "successes" (here the number of contraceptive
+users), with a denominator (here the number of women) given in the binomial 
+family specification.
+
+```s
+	glm users, family(binomial n)
+	estimates store null
+```
+
+The estimate of the constant is simply the logit of the overall
+proportion using contraception, say *p=y/n*, and the standard error is
+the square root of *1/y + 1/(n-y)*. You may want to check these results
+by hand. To compute logits you may use
+the `logit` function, with inverse `invlogit`.
+These specialized functions are more accurate than just computing *log(p/(1-p))*.
+
+The deviance is 91.67 on one d.f., providing ample evidence that the
+null model does not fit the data. Thus, we reject the hypothesis that
+the probability of using contraception is the same in the two groups.
+
+An alternative test is Pearson's chi-squared, which is 92.64 on one d.f.,
+and leads to the same conclusions. These two tests are asymptotically
+equivalent, so they tend to give similar results in large samples.
+
+### The Odds Ratio
+
+Let us now fit the model with "want no more" children as the
+predictor. This model is saturated for this dataset, using two
+parameters to model two probabilities:
+
+```s
+	glm users nomore, family(binomial n)
+	di exp(_b[nomore])
+```
+
+The constant corresponds to the log-odds of using contraception among
+whomen who *do* want more children, and the coefficient of `nomore` is
+the difference in log-odds between the two groups.
+
+Exponentiating this coefficient we get an odds ratio of about three.
+Contrary to popular belief, this does not mean that "women who want no
+more children are three times more likely to use contraception". There
+are two errors in this interpretation.
+
+First, and more importantly, it is the *odds* of using contraception
+among women who want no more children that are three times those of
+women who want more, not the probability, which is what's usually
+understood by "likelihood". The interpretation would be approximately
+correct if the event under study was rare, because if *p* is small then
+*1-p* is close to one and the odds ratio is approximately the same as
+the relative risk. Here the observed proportions are 0.454 and 0.225,
+and the ratio is 2.01, so women who want no more children are twice as
+likely to use contraception as those who want more.
+
+Second, even if the probability was tripled, that would make the women
+three times *as* likely, or two times *more* likely, to use
+contraception, not three times more likely. In this case the probability
+is doubled, and that makes women twice *as* likely, not two times *more*
+likely.
+
+### Testing Significance
+
+The z-statistic is as reported on page 16 of the notes. Let us square it:
+
+```s
+	di (_b[nomore]/_se[nomore])^2
+```
+
+This is Wald's chi-squared statistic for the hypothesis that the coefficient
+of `nomore` is zero, or equivalently that the odds-ratio is one.
+This can be calculated more simply using Stata's `test` command:
+
+```s
+	test nomore
+```
+
+We can also compare these models using a likelihood ratio test.
+
+```s
+	lrtest null .
+```
+
+Can you explain why we get 91.67, which is the deviance of the null model?
+*Hint:* What's the deviance of the current model?
+
+A third test of the effect of want no more is given by Pearson's
+chi-squared statistic, which we calculated earlier as 92.64. This is
+equivalent to the standard z-test for comparing two proportions if you
+use the pooled proportion to estimate the standard error.
+
+All three statistics are different, but they are asymptotically
+equivalent. In our example they are also close in value and lead to the
+same overwhelming rejection of the hypothesis that the probability of
+using contraception is the same in the two groups.
+
+### Confidence Intervals
+
+Stata is kind enough to give us a 95% confidence interval for the logit
+coefficients. We can convert the interval for the coefficient of
+`nomore` into a 95% CI for the odds ratio by exponentiating the
+confidence bounds:
+
+```s
+	di exp(0.831716) "-" exp(1.265542)
+```
+
+An even easier way is to type `glm, eform`. The `glm` command without
+any variables, like all estimation commands, simply retrieves the
+results of the last fit. The option `eform` is short for exponential 
+form and exponentiates the coefficients.
+
+```s
+	glm , eform
+```
+
+With 95% confidence, the odds of using contraception among women who want
+no more kids are between 2.3 and 3.5 times as high as for women who want more
+children.
+
+Note that the standard confidence bounds for the odds ratio are *not*
+calculated by adding and subtracting twice its standard error. Instead,
+the calculation is done in the logit scale and the results are then
+exponentiated. This is done because the normal approximation is more
+accurate (and makes more sense) in the logit scale, which has no range
+restrictions.
+
+*Exercise*. Calculate the conventional z-test for comparing the
+proportions using contraception in the two groups and verify that the
+square coincides with Pearson's chi-squared statistic.
+
+<small>Updated fall 2022</small>

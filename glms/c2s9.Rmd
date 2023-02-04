@@ -1,0 +1,145 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 2.9 Regression Diagnostics {#c2s9 .first}
+
+In this section we will be working with the additive analysis of
+covariance model of the previous section. As usual, we start by reading
+the data and recreating the variables we need. We then fit the model.
+
+```{r}
+library(dplyr)
+fpe <- read.table("https://grodri.github.io/datasets/effort.dat") |>
+  mutate(effort_g = cut(effort, breaks=c(min(effort), 5, 15, max(effort)),
+  right=FALSE, include.lowest=TRUE, labels=c("Weak","Moderate","Strong")))
+m2cg <- lm(change ~ setting + effort_g, data=fpe)	
+```
+
+All of the diagnostic measures discussed in the lecture notes can be
+calculated in Stata and R, some in more than one way.
+
+### Residuals
+
+Let us start with the residuals.
+The extractor function `residuals()` returns raw residuals, and has an 
+optional argument to return other types, but I find it easier to use 
+`rstandard()` for standardized and `rstudent()` for studentized residuals.
+Let us obtain all three:
+
+```{r}
+ddf <- data.frame( residuals=residuals(m2cg), rstandard=rstandard(m2cg), 
+	rstudent=rstudent(m2cg))
+```
+
+### Leverage and Influence
+
+To get the diagonal elements of the hat matrix and Cook's distance we use
+the extractor functions `hatvalues()` and `cooks.distance()`:
+
+```{r}
+library(dplyr)
+ddf <- mutate(ddf, hat=hatvalues(m2cg), cooks=cooks.distance(m2cg))
+```
+
+We are now ready to print Table 2.29 in the notes.
+
+```{r}
+ddf
+```
+
+Here is an easy way to find the cases highlighted in Table 2.29, those
+with standardized or jackknifed residuals greater than 2 in magnitude:
+
+```{r}
+filter(ddf, abs(rstandard) > 2 | abs(rstudent) > 2)
+```
+
+We will calculate the maximum acceptable leverage, which is *2p/n* in general,
+and then list the cases exceeding that value (if any).
+
+```{r}
+hatmax = 2*4/20
+filter(ddf, hat > hatmax)
+```
+
+We find that Haiti has a lot of leverage, but very little actual influence.
+Let us list the six most influential countries. I will do this
+using `arrange()` with `desc()` to sort in descending order, and then using
+subscripts to pick the first 6 rows.
+
+```{r}
+arrange(ddf, desc(cooks))[1:6,]
+```
+
+Turns out that the D.R., Cuba, and Ecuador are fairly influential observations.
+Try refitting the model without the D.R. to verify what I say on page 57 of the
+lecture notes.
+
+### Residual Plots
+
+On to plots! Here is the standard residual plot in Figure 2.6, produced using
+the following code:
+
+```{r}
+library(ggplot2)
+ddf <- mutate(ddf, fitted = fitted(m2cg))
+png("fig26r.png", width=500, height=400)
+ggplot(ddf, aes(fitted, rstudent)) + geom_point() +
+  ggtitle("Figure 2.6: Residual Plot for Ancova Model")	
+dev.off()
+```
+
+![](fig26r.png){.img-responsive .center-block .r}
+
+*Exercise*: Can you label the points corresponding to Cuba, the D.R. and Ecuador?
+
+### Q-Q Plots
+
+Now for that lovely Q-Q-plot in Figure 2.7 of the notes:
+
+```{r}
+library(ggplot2)
+png("fig27r.png", width=500, height=400)
+ggplot(ddf, aes(sample = rstudent)) +  
+  stat_qq() + geom_abline(intercept=0, slope=1) +
+  ggtitle("Figure 2.7: Q-Q Plot for Residuals of Ancova Model")
+dev.off()
+```
+
+![](fig27r.png){.img-responsive .center-block .r}
+
+Wasn't that easy?
+The `qnorm()` function in base R will do this plot, but I used the equivalent
+`stat_qq()` in the `ggplot2` package. I superimposed a 45 degree line rather than
+using `stata_qq_line()`. It is not clear to me how they approximate the rankits, 
+but the calculation seems very close to *(i-3/8)/(n+1/4)*, except for a couple 
+of points on either tail.
+Of course you can use any approximation you want, albeit at the expense of
+additional work.
+
+### Filliben
+
+I will illustrate the general idea by calculating Filliben's approximation to
+the expected order statistics or rankits.
+After sorting the studentized residuals I use `row_number()` for the 
+observation number and `nrow()` for the number of cases.
+
+```{r}
+N <- nrow(ddf)
+ddf <- arrange(ddf, rstudent) |>
+   mutate(p = (row_number()-0.3175)/(N + 0.365))
+ddf$p[1] <- 1-0.5^(1/N); ddf$p[N] <- 0.5^(1/N)
+ddf <- mutate(ddf, filliben = qnorm(p))
+summarize(ddf, r_rstudent=cor(rstudent,filliben), 
+  r_rstandard=cor(rstandard,filliben))
+```
+
+The correlation is 0.9518 using jack-knifed residuals, and 0.9655 using
+standardized residuals. The latter is the value quoted in the notes.
+Both are above (if barely) the minimum correlation of 0.95 needed to
+accept normality. I will skip the graph because it looks almost identical
+to the one produced above.
+
+<small>Updated fall 2022</small>

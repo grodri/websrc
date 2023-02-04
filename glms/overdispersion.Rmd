@@ -1,4 +1,8 @@
 
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
 ## 4.A Models for Over-Dispersed Counts
 
 We use data from Long (1990) on the number of publications produced by
@@ -20,10 +24,12 @@ The variables in the dataset are
 These data have also been analyzed by Long and Freese (2006), and are
 available from the Stata website:
 
-```s
-    use https://www.stata-press.com/data/lf2/couart2,clear
-    summarize art
-    di r(Var)
+```{r}
+    library(haven)
+    ab <- read_dta("https://www.stata-press.com/data/lf2/couart2.dta")
+    names(ab)
+    r <- c(mean(ab$art), var(ab$art))
+    c(mean=r[1], var=r[2], ratio=r[2]/r[1])
 ```
 
 The mean number of articles is 1.69 and the variance is 3.71, a bit more
@@ -34,19 +40,20 @@ haven't considered any covariates yet.
 
 Let us fit the model used by Long and Freese (2006), a simple additive
 model using all five predictors.
-We could use `poisson` followed by `estat gof`, but I will use `glm` to 
-obtain the deviance and Pearson's chi-squared immediately.
 
-```s
-    glm art fem mar kid5 phd ment, family(poisson) nolog
-    estimates store poisson
+```{r}
+    mp <- glm(art~fem+mar+kid5+phd+ment, family=poisson, data=ab)
+    summary(mp)
 ```
 
 We see that the model obviously doesn't fit the data. The five-percent
 critical value for a chi-squared with 909 d.f. is
 
-```s
-    di invchi2tail(909, 0.05)
+```{r}
+    qchisq(0.95, df.residual(mp))
+    deviance(mp)
+    pr <- residuals(mp, "pearson")
+    sum(pr^2)
 ```
 
 and the deviance and Pearson's chi-squared are both in the 1600s.
@@ -57,45 +64,53 @@ We now assume that the variance is *proportional* rather than equal to
 the mean, and estimate the scale parameter $\phi$ dividing Pearson's
 chi-squared by its d.f.:
 
-```s
-    scalar phi = e(deviance_p)/e(df)
-    di  phi, sqrt(phi)
+```{r}
+    phi <- sum(pr^2)/df.residual(mp)
+    round(c(phi, sqrt(phi)), 4)
 ```
 
 We see that the variance is about 83% larger than the mean. This means
 that we should adjust the standard errors multiplying by 1.35, the
 square root of 1.83.
 
-The `glm` command can do this for us via the `scale()` option, which
-takes as argument a numeric value, or simply `x2` to use Pearson's
-chi-squared
+R can do this calculation for us if we use the `quasipoisson` family:
 
-```s
-     glm art fem mar kid5 phd ment, family(poisson) scale(x2) nolog
-     estimates store overdisp
+```{r}
+    mq <- glm(art~fem+mar+kid5+phd+ment, family=quasipoisson, data=ab)
+    summary(mq)
 ```
 
 The estimates are exactly the same as before, but the standard errors
 are about 35% larger. We have essentially attributed all lack of fit to
 pure error.
+We can verify this fact easily. First we write a useful function to extract 
+standard errors and then use it on our fits:
+
+```{r}
+    se <- function(model) sqrt(diag(vcov(model)))
+    round(data.frame(p=coef(mp), q=coef(mq), 
+      se.p=se(mp), se.q=se(mq), ratio=se(mq)/se(mp)), 4)
+```
 
 An alternative approach is to fit a Poisson model and use the robust or
 sandwich estimator of the standard errors. This usually gives results
 very similar to the over-dispersed Poisson model.
-In Stata use `poisson` with the `robust` option.
 
 ### Negative Binomial Regression {#nb}
 
 We now fit a negative binomial model with the same predictors.
+To do this we need the `glm.nb()` function in the `MASS` package.
 
-```s
-    nbreg art fem mar kid5 phd ment, nolog
-    estimates store nbreg
-    scalar sigma2 = e(alpha)
+```{r}
+    library(MASS)
+    mnb <- glm.nb(art ~ fem + mar + kid5 + phd + ment, data = ab)   
+    summary(mnb)
+    1/mnb$theta
+    -2*(logLik(mp) - logLik(mnb))
 ```
 
-Stata's `alpha` is the variance of the random effect, and corresponds to 
-σ^2^ in the notes.
+R's `theta` is the precision of the multiplicative random effect, and
+corresponds to 1/σ^2^ in the notes.
 The estimate corresponds to an estimated variance of 0.44 and is highly
 significant.
 
@@ -115,32 +130,48 @@ For testing hypotheses about the regression coefficients we can use
 either Wald tests or likelihood ratio tests, which are possible because
 we have made full distributional assumptions.
 
+There's also a `negative.binomial` family for `glm` and this can be used
+provided the parameter `theta` is given. (This is based on the result
+that the negative binomial is in the glm family for fixed variance.)
+Here's a quick check:
+
+```{r}
+    mnbg <- glm(art~fem+mar+kid5+phd+ment, 
+      family=negative.binomial(mnb$theta), data=ab)
+    all(abs(coef(mnb)-coef(mnbg)) < 1e-5)
+```
+
+The standard errors would differ, however, because `glm.nb` allows for
+the fact that `theta` was estimated, whereas `glm` does not.
+
 ### Unobserved Heterogeneity {#het}
 
 Let us draw the density of the parameter representing unobserved
 heterogeneity.
-Stata has a function `gammaden(a, b, g, x)` to compute
-the density of a gamma distribution with shape `a`, scale `b` and
-location shift `g`. In particular, when the random effect has variance
-`v` the density is `gammaden(1/v, v, 0, x)`.
+R has a function `dgamma(x, shape, rate = 1, scale = 1/rate)` to compute 
+the density of a gamma distribution with given shape and scale (or its 
+reciprocal the rate). In particular, when the random effect has variance 
+`v` the density is `dgamma(x, shape = 1/v, scale = v)`.
 
-```s
-    scalar v = e(alpha)
-    twoway function y=gammaden(1/v, v, 0, x), range(0 3) ///
-		title(The Gamma Density for Heterogeneity with Variance 0.44)
-    graph export gamden.png, width(500) replace
+```{r}
+    library(ggplot2)
+    v = 1/mnb$theta
+    x  = seq(0, 3, 0.05)
+    gd = data.frame(x, g = dgamma(x, shape = 1/v, scale = v))
+png("gamdenr.png", width=500, height=400)
+    ggplot(gd, aes(x, g)) + geom_line() + 
+   ggtitle("The Gamma Density for Heterogeneity with Variance 0.44")
+    dev.off()
 ```
 
-![](gamden.png){.stata}
+![](gamdenr.png){.r}
 
 We can also compute quantiles using
-Mata. The function `invgamma(a,p)` computes quantiles of the standard gamma 
-with shape `a`, which has scale 1 and shift 0. In our case the shape is `1/v` 
-and because the scale is `v` we need to multiply the quantiles by `v`.
+`qgamma(p, shape, rate = 1, scale = 1/rate, lower.tail = TRUE)`. In our
+case the shape is `1/v` and the scale is `v`.
 
-```s
-    mata: v = st_numscalar("v")
-    mata: invgammap(1/v, (1..3)/4) * v
+```{r}
+    qgamma((1:3)/4, shape = 1/v, scale = v)
 ```
 
 Biochemists at Q1 of the distribution of unobserved heterogeneity
@@ -153,15 +184,10 @@ at Q3 publish 33% more than expected.
 Let us compare parameter estimates and standard errors under the
 Poisson, over-dispersed Poisson and negative binomial models:
 
-```s
-    //v<17 estimates table poisson overdisp nbreg, b(%7.4f) se(%7.4f)
-    quietly etable, estimates(poisson overdisp nbreg)
-    collect stars clear
-    collect addtags group[Coefficient], fortags(result[_r_b]#cmdset)
-    collect addtags group[Std Error], fortags(result[_r_se]#cmdset)
-    collect label levels cmdset 1 "Poisson" 2 "Overdisp." 3 "Neg.Bin.", modify
-    quietly collect layout (colname) (group#result[_r_b _r_se]#cmdset)  
-    collect preview
+```{r}
+    round(data.frame(
+      p=coef(mp),q=coef(mq),nb=coef(mnb),
+    se.p=se(mp),se.q=se(mq),se.nb=se(mnb)),4)
 ```
 
 The negative binomial estimates are not very different from those based
@@ -174,12 +200,10 @@ ordinary Poisson regression underestimates the standard errors.
 ### Goodness of Fit {#gof}
 
 We can assess the goodness of fit of the negative binomial model by
-feeding the estimate of the variance into `glm`, which can fit these
-models for a *fixed* value of the variance parameter.
+using the deviance.
 
-```s
-    local v = e(alpha)
-    glm art fem mar kid5 phd ment, family(nb `v') nolog
+```{r}
+    deviance(mnbg)
 ```
 
 The negative binomial model fits better than the Poisson, but still has
@@ -194,35 +218,30 @@ variance for each group, and finally plot the mean-variance
 relationship.
 
 Here are groups based on the negative binomial linear predictor, created using
-`egen` with the `cut()` subcommand and the `group()` option
+`cut()` with `breaks` at the (5(5)95 percentiles
 to produce twenty groups of approximately equal size.
+Note that `predict()` computes a linear predictor, unless otherwise specified. 
+To predict in the scale of the response add the option `type="response"`.
 
-```s
-    predict xb, xb
-    egen group = cut(xb), group(20)
+```{r}
+    library(dplyr)
+xb <- predict(mnb)
+    q <- c(min(xb)-0.1, quantile(xb, seq(5,95,5)/100), max(xb)+0.1)
+    ab <- mutate(ab, group=cut(xb, breaks=q))
+    mv <- group_by(ab,group) |> summarize(mean=mean(art), variance=var(art), n=n())
+    x <- seq(0.63, 3.37, 0.02)
+    g  <- data.frame( mean = x, poisson = x * phi, negbin = x * (1 + x/mnb$theta))
+    png("c4afig1r.png", width=500, height=400)
+    ggplot(mv, aes(x=mean, y=variance)) + geom_point()  + xlim(0.5, 3.8) + 
+      geom_line(data=g, aes(x=mean, y=poisson) , linetype="dashed") +
+      geom_line(data=g, aes(x=mean, y=negbin), linetype="solid") +
+      ggtitle("Mean-Variance Relationship", 
+        subtitle = "Articles Published by Ph.D. biochemists") +
+      geom_text(x=3.6, y=6.2, label="P") + geom_text(x=3.6, y=8.5, label="NB") 
+    dev.off()
 ```
 
-Now we collapse to a dataset of means and standard deviations
-(`collapse`' does not do variances, but we can always square the
-standard deviation). We also compute the over-dispersed Poisson and
-negative binomial variance functions and plot everything
-
-```s
-    preserve
-    collapse (mean) art (sd) sart=art, by(group)
-    gen vart = sart^2
-    gen v_p = art * phi
-    gen v_nb = art*(1+art*sigma2)
-    twoway (scatter vart art) (line v_p art, lp(dash)) ///
-      (mspline v_nb art, bands(10) ) ///
-      , xtitle(Mean) ytitle(Variance) title("Mean-Variance Relationship") ///
-      subtitle("Articles Published by Ph.D. Biochemists") ///
-      legend( order(2 "Poisson" 3 "Neg.Bin.") ring(0) pos(5) cols(1))
-    graph export c4afig1.png, width(500) replace
-    restore
-```
-
-![](c4afig1.png){.img-responsive .center-block .stata}
+![](c4afig1r.png){.img-responsive .center-block .r}
 
 The graph plots the mean versus the variance and overlays the curves
 corresponding to the over-dispersed Poisson model, where the variance is
@@ -242,12 +261,10 @@ A frequent occurrence with count data is an excess of zeroes compared to
 what's expected under a Poisson model. This is actually a problem with
 our data:
 
-```s
-    gen zobs = art == 0
-    estimates restore poisson
-    predict mup
-    gen zpoi = exp(-mu)
-    sum zobs zpoi
+```{r}
+    zobs <- ab$art == 0
+    zpoi <- exp(-exp(predict(mp))) # or dpois(0,exp(predict(mp)))
+    c(obs=mean(zobs), poi=mean(zpoi))
 ```
 
 We see that 30.0% of the scientists in the sample published no articles
@@ -275,15 +292,18 @@ to introduce covariates is to model the logit of the probability $\pi$ of
 always zero and the log of the mean $\mu$ for those not in the always zero
 class.
 
-Stata implements this combination in the `zip` command. The equation 
-for the counts is specified as usual and the model for the "always zero" 
-class is specified in the `inflate()` option.
+This type of model can be fit in R using the `zeroinfl()` function in
+the `pscl` package. The model formula can be specified as usual if the
+same variables are to be included in both equations. Otherwise one can
+provide two sets of predictors separated by a vertical bar, type
+`?zeroinfl` to learn more.
 
 Here's a zero-inflated model with all covariates in both equations:
 
-```s
-    zip art fem mar kid5 phd ment, inflate(fem mar kid5 phd ment) nolog
-    estimates store zip
+```{r}
+    library(pscl)
+    mzip <- zeroinfl(art ~ fem + mar + kid5 + phd + ment, data=ab)
+    summary(mzip)
 ```
 
 Looking at the inflate equation we see that the only significant
@@ -299,17 +319,16 @@ with a 1.8% increase in the expected number of publications.
 
 To verify that the model solves the problem of excess zeroes we predict
 $\pi$ and $\mu$, and calculate the combined probability of no publications.
-Stata's `predict` computes the probability of always zero with the option 
-`pr` and the Poisson linear predictor with the option `xb`. A third option 
-that we will not use, `n`, predicts the expected count as `(1-pr)*exp(xb)`. 
-Here's how to predict $\pi$ and $\mu$:
+There are options in the `predict()` function called `"zero"` and
+`"count"` to obtain these. There's also an option `"prob"` to compute
+the predicted density, but this is overkill, as we only want the
+probability of zero.
 
-```s
-    predict pz, pr
-    predict xbz, xb
-    gen muz = exp(xbz)
-    gen zip = pz + (1-pz)*exp(-muz)
-    sum zip
+```{r}
+    pr <- predict(mzip,type="zero")  # pi
+    mu <- predict(mzip,type="count") # mu
+    zip <- pr + (1-pr)*exp(-mu)      # or predict(mzip,type="prob")[,1]
+    mean(zip)
 ```
 
 So the model solves the problem of excess zeroes, predicting that 29.9%
@@ -319,8 +338,6 @@ value of 30.0%.
 There's also a zero-inflated negative binomial model, which uses a
 negative binomial for the count in the "not always zero" class. This
 model can be fit using
-'zinb', with the model for the "always zero" class specified in the 
-`inflate()` option, just as in `zip`.
 [`zeroinfl()` with the `dist="negbin"` parameter. Alternative links for
 the inflate equation include the probit, which can be specified using
 `link="probit"`]{.r}.
@@ -332,12 +349,12 @@ zeroes too! Here's the probability of zero articles in the negative
 binomial. We proceed from first principles, but one could also use the
 built-in negative binomial density
 
-```s
-    estimates restore nbreg
-    predict munb
-    scalar tau = 1/sigma2
-    gen znb = (tau/(munb+tau))^tau
-    sum znb
+```{r}
+    munb <- exp(predict(mnb))
+    theta <- mnb$theta
+    znb <- (theta/(munb+theta))^theta
+    # also dnbinom(0, mu=munb, size=theta)
+    mean(znb)
 ```
 
 The model predicts that 30.4% of the biochemists would publish no
@@ -354,11 +371,13 @@ AIC = -2logL + 2p
 where p is the number of parameters in the model. The first term is
 essentially the deviance and the second a penalty for the number of
 parameters. I will obtain it "by hand" so we see exactly what's going on.
+AIC may also be calculated using the `AIC()` function.
 
-```s
-    di "Negative binomial", -2*e(ll) + 2*e(rank)
-    estimates restore zip
-    di "Zip",  -2*e(ll) + 2*e(rank)
+```{r}
+    c(nb = AIC(mnb), zip = AIC(mzip))
+    mzip$rank <- length(coef(mzip)) # add a rank component
+    aic <- function(model) -2*logLik(model) + 2*model$rank
+    sapply(list(mnb, mzip), aic)
 ```
 
 For this dataset the negative binomial model is a clear winner in terms
@@ -379,7 +398,8 @@ that excludes zero and rescales the other probabilities to sum to one.
 One should be careful interpreting these models because $\mu$ is not the
 expected outcome, but the mean of an underlying distribution that
 includes the zeros.
-Stata implements these models in the commands `tpoisson` and `tnbreg`.
+These models are implemented in the `vglm()` function in the `VGAM` 
+package, using the families `pospoisson` and `posnegbinomial`.
 
 An alternative approach to excess (or a dearth) of zeroes is to use a
 two-stage process, with a logit model to distinguish between zero and
@@ -391,6 +411,7 @@ articles of those who publish at least one. These models are often
 called *hurdle* models. They can be fitted in Stata or R using the
 separate logit and zero-truncated Poisson or negative binomial models,
 and simply adding the log-likelihoods.
+They can also be fit in R using the `hurdle()` function in the `pscl` package.
 
 Comparing hurdle and zero-inflated models, I find the distinction
 between zero and one or more to be clearer with hurdle models, but the

@@ -1,0 +1,132 @@
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA, prompt = TRUE)
+```
+
+## 8.2 Longitudinal Linear Model
+
+Here's an interesting example where fixed-effects gives a very
+different answer from OLS and random-effects models. The data come from
+Wooldridge's text and concern state-level data on the percentage of
+births classified as low birth weight and the percentage of the
+population in the AFDC welfare program in 1987 and 1990. The data are
+available from the Stata website.
+
+```{r}
+library(haven)
+lbw <- read_dta("https://www.stata.com/data/jwooldridge/eacsap/lowbirth.dta")
+```
+
+### OLS
+
+Here's a regression of low birth weight on AFDC with a dummy for 1990
+(time trends) and controls for log physicians per capita, log beds per
+capita, log per capita income, and log population.
+
+```{r}
+ols <- lm(lowbrth ~ d90 + afdcprc + lphypc + lbedspc + lpcinc + lpopul, data = lbw)
+summary(ols)
+```
+
+It seems as if AFDC has a pernicious effect on low birth weight: each
+percent in AFDC is associated with an extra 1/10-th of one percent with
+low birth weight. A scatterplot shows a positive correlation:
+
+```{r}
+library(ggplot2)
+png("afdc1r.png", width=500, height=400)
+ggplot(lbw, aes(afdcprc, lowbrth, color=as.factor(year))) + geom_point() +
+  ggtitle("Low Birth Weight and AFDC Participation") +
+  labs(x="Percent low birth weight", y="Percent in AFDC")
+dev.off()
+```
+
+![](afdc1r.png){.img-responsive .center-block .r}
+
+### Random-Effects
+
+Fitting a random-effects model improves things a bit.
+
+```{r}
+library(lme4)
+lbw$stateabb <- as.factor(lbw$stateabb)
+re <- lmer(lowbrth ~ d90 + afdcprc + lphypc + lbedspc + lpcinc + lpopul + 
+  (1 | stateabb), REML = FALSE, data=lbw)
+summary(re, corr = FALSE)
+s2u <- as.numeric(VarCorr(re))
+s2e <- sigma(re)^2
+s2u/(s2u + s2e) # icc
+```
+
+The effect of AFDC is now negative, as we would expect, but not
+significant. The intra-state correlation over the two years is a
+remarkable 0.96; persistent state characteristics account for most of
+the variation in the percent with low birth weight after controlling for
+AFDC participation and all other variables.
+
+### Fixed-Effects
+
+Fitting a fixed-effects model gives much more reasonable results:
+
+```{r}
+library(plm)
+fe <- plm(lowbrth ~ d90 + afdcprc + lphypc + lbedspc + lpcinc + lpopul, 
+  data=lbw, index = "stateabb", method = "within")
+summary(fe)
+```
+
+Now every percent increase in AFDC is associated with a *decline* of
+almost 2/10-th of a percentage point in low birth weight. The
+coefficient of log physicians per capita is highly suspect; this is due
+to high correlation with the other predictors, most notably the log of
+population. In fact once we have state fixed effects we don't really
+need the other controls:
+
+```{r}
+fe2 <- plm(lowbrth ~ d90 + afdcprc, 
+  data=lbw, index = "stateabb", method = "within")
+summary(fe2)
+```
+
+One way to see what's going on is to compute and plot differences in the
+percent with low birth weight and the percent with AFDC. We
+could reshape to wide, but I will keep the data in long format:
+
+```{r}
+library(dplyr)
+y90 <- filter(lbw, year == 1990)
+y87 <- filter(lbw, year == 1987)
+lbwd <- data.frame( lowbrthd = y90$lowbrth - y87$lowbrth,
+  afdcd = y90$afdcprc - y87$afdcprc)
+png("afdc2r.png", width = 500, height = 400)
+ggplot(lbwd, aes(afdcd, lowbrthd)) + geom_point() + stat_smooth(method="lm") +
+  ggtitle("Changes in Low Birth Weight and in AFDC Participation") +
+  labs(x="Change in AFDC", y="Change in low birth weight")
+dev.off()
+```
+
+![](afdc2r.png){.img-responsive .center-block .r}
+
+### FE and Differencing
+
+Let us verify that we get the same results using regression on the
+differences. The constant is the coefficient of `d90` and the slope is
+the coefficient of `afdcprc`:
+
+```{r}
+fe_diff <- lm(lowbrthd ~ afdcd, data = lbwd)
+summary(fe_diff)
+```
+
+### FE and Dummy Variables
+
+Finally we verify that we get the same results using state dummies.
+
+```{r}
+fe_dummy <- lm(lowbrth ~ d90 + afdcprc + stateabb, data=lbw)
+summary(fe_dummy)$coefficients[1:3,]
+```
+
+I just omitted from the listing the state dummies
+
+<small>Updated fall 2022</small>
