@@ -41,8 +41,7 @@ from 4 to 35, with an average of 17.46.
 ### Components of Variance
 
 Next we fit a simple variance components model of the form
-[*Y*~*ij*~ = *μ* + *a*~*i*~ + *e*~*ij*~]{.math .inline} using `schoolnr`
-as the grouping factor:
+$Y_{ij} = \mu + a_i + e_{ij}$ using `schoolnr`as the grouping factor:
 
 ```s
 	xtreg langpost, i(schoolnr) mle
@@ -109,31 +108,31 @@ We verify the estimate of 40.36.
 Next we consider 'estimation' of the school random effects.
 
 If these effects were treated as *fixed*, so the model is
-[~*ij*~ = *μ* + *α*~*i*~ + *e*~*ij*~]{.math .inline} we would estimate
+$Y_{ij} = \mu + \alpha_i + e_{ij}$ we would estimate
 them by introducing a dummy variable for each school.
 
-It turns out that the estimate of [*μ*]{.math .inline} is the overall
-mean, the estimate of [*μ* + *α*~*i*~]{.math .inline} is the school
-mean, and thus the estimate of αi is the difference between the school
-mean and the overall mean.
+It turns out that the estimate of $\mu$ is the overall
+mean, the estimate of $\mu + \alpha_i$ is the school mean, 
+and thus the estimate of $\alpha_i$ is the difference between the 
+school mean and the overall mean.
 
-With *random* effects we consider the (posterior) distribution of ai
-given the data yi (the vector with yi j for j = 1, ... ,ni). This can be
-obtained using Bayes theorem from the (prior) distribution of ai, the
-conditional distribution of the data **y**~i~ given *a*~i~ and the
+With *random* effects we consider the (posterior) distribution of $a_i$
+given the data $y_i$ (the vector with $y_{ij}$ for $j=1,\ldots,n_i$). This can 
+be obtained using Bayes theorem from the (prior) distribution of $a_i$, the
+conditional distribution of the data $y_i$ given $a_i$, and the
 marginal distribution of the data.
 
 The resulting estimate is known as BLUP (for best linear unbiased
 predictor) and can be shown to be the difference between the school mean
 and the m.l.e. of the constant "shrunk" towards zero by a factor
 
-[*R*~*i*~ = *σ*~*u*~^2^/(*σ*~*u*~^2^ + *σ*~*e*~^2^/*n*~*i*~),]{.math .display}
-
+$$
+R_i = \frac{\sigma^2_u}{\sigma^2_u + \sigma^2_e/n_i}
+$$
 the ratio of the variances of the random effect and the school mean.
-Note that shrinkage is minimal when (1) [*n*~*i*~]{.math .inline} is
-large, (2) [*σ*~*e*~^2^]{.math .inline} is small (students are not
-informative), and/or (3) [*σ*~*u*~^2^]{.math .inline} is large (schools
-are informative). Let us calculate these 'by hand'
+Note that shrinkage is minimal when (1) $n_i$ is large, (2) $\sigma^2_e$ 
+is small (students are not informative), and/or (3) $\sigma^2_u$ is large 
+(schools are informative). Let us calculate these 'by hand'
 
 ```s
 	gen R = _b[/sigma_u]^2/(_b[/sigma_u]^2 + _b[/sigma_e]^2/sn)

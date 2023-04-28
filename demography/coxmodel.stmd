@@ -81,8 +81,8 @@ paper
 
 Another way to check proportionality of hazards is to plot the log-log
 transformation of the survival functions versus log time, that is
-[−*log*(−*log*(*S*(*t*))]{.math .inline} versus [log(*t*)]{.math
-.inline}, as the lines should then be parallel if the assumption holds.
+$-\log(-\log(S(t)))$ versus $\log(t)$,
+as the lines should then be parallel if the assumption holds.
 
 ```s
 	stphplot, by(treated) legend(off) title(Plot of log-log Survival)

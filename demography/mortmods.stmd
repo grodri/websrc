@@ -118,7 +118,7 @@ cases we write a simple "residual sum of squares" function. Our
 function is "hardwired" to use `b31` and the male model. Note that the
 data go up to age 85+ but the model continues to 110+. For simplicity I
 will only use ages 0 to 85 and skip the open-ended group. I use as
-starting values [log(~*q*~1~0~)]{.math .inline} and zero.
+starting values $\log({}_1q_0)$ and zero.
 
 ```s
 	mata:

@@ -81,12 +81,11 @@ We see that the hazard in 2002 was higher for blacks at every age up to
 ### Individual and Population Hazards
 
 Consider a hypothetical cohort with individual baseline hazard
-[*h*~0~(*t*)]{.math} and unobserved heterogeneity, assumed to have a
+$h_0(t)$ and unobserved heterogeneity, assumed to have a
 gamma distribution with variance one. What would this hazard have to
-look like to produce a population hazard of [*h*(*t*)]{.math}? We saw in
-the heterogeneity handout that [*h*~0~(*t*) =
-*h*(*t*)*exp*{*H*(*t*)}]{.math}, see Equation 5 on page 10. We now apply
-this formula separately to blacks and whites.
+look like to produce a population hazard of $h(t)$? We saw in
+the heterogeneity handout that $h_0(t) = h(t)\exp\{H(t)\}$, see Equation 5 
+on page 10. We now apply this formula separately to blacks and whites.
 
 Before we do, note that in the data the hazard applies to midpoints
 whereas the cumulative hazard applies to the lower bounds of each year

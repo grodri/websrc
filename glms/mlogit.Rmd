@@ -74,8 +74,8 @@ case school.
 Taking derivatives w.r.t. the k-th predictor we obtain, after some
 simplification
 $$
- frac{\partial\pi\_{ij}}{\partial x_{ik}} =
-\pi_{ij} ( \beta\_{jk} - \sum_r \pi_{ir} \beta_{rk} )
+ \frac{\partial\pi\_{ij}}{\partial x_{ik}} =
+\pi_{ij} ( \beta_{jk} - \sum_r \pi_{ir} \beta_{rk} )
 $$
 noting again that the coefficient is zero for the baseline outcome.
 

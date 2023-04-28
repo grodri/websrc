@@ -90,11 +90,11 @@ intercensal period, or just take the ratio and subtract one, we obtain
 	
 So the population grew by 9.7% in ten years. You'd think this is 0.97% per year, 
 but that is only approximate because it doesn't compound the growth over the 
-ten years. If we start with a population *P1* and compound *k* times per year 
-at an annual rate *r* for ten years, the population will grow to 
-*P~2~ = P~1~(1+r/k)^(10k)^#. 
-Solving for *r* gives a growth rate of *r = k[(P~2~/P~1~)^(1/(10k))^-1]*. 
-Here's the rate we obtain using different values of *k*
+ten years. If we start with a population $P_1$ and compound $k$ times per year 
+at an annual rate $r$ for ten years, the population will grow to 
+$P_2 = P_1(1 + r/k)^{10k}$. 
+Solving for $r$ gives a growth rate of $r = k[(P_2/P_1)^{1/(10k)} -  1]$.
+Here's the rate we obtain using different values of $k$
 
 ```s
 	mata:
@@ -112,11 +112,11 @@ Here's the rate we obtain using different values of *k*
 	data.frame(k=k, r=r)
 ```
 	
-A unit value of *k* means compounding anually, 12 means monthly, and 365 means 
+A unit value of $k$ means compounding anually, 12 means monthly, and 365 means 
 daily. We could continue compounding every minute, or every second, but you can 
 see that our calculation is quickly approaching a limit. 
-From elementary calculus we know that as *k \rightarrow \infty* our equation 
-becomes *P~2~ = P~1~ *exp*(10 r)*, and solving for *r* gives log*(P~2~/P~1~)/10*, 
+From elementary calculus we know that as $k \rightarrow \infty$ our equation 
+becomes $P_2 = P_1 \exp\{10r\}$, and solving for $r$ gives r=\log(P_2/P_1)/10$,
 so the  limiting value is
 	
 ```s
