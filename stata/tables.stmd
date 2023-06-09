@@ -163,8 +163,8 @@ by age groups and area of residence.
 	  nformat(%5.2f) sformat((%s) sd) style(table-tab2)
 	  
 Type just the first line first to see all the defaults. The second line adds
-some customization. We use our old friend `nformat()` to display the statistics
-with just two decimals. We also use `sformat()` to print the standard deviation
+some customization. We use our old friend `nformat` to display the statistics
+with just two decimals. We also use `sformat` to print the standard deviation
 in parentheses, specifying `sd` to ensure that this format applies only to that
 statistic.
 
