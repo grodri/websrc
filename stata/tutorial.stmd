@@ -1,8 +1,8 @@
 ---
 title: Stata Tutorial 
 author: Germán Rodríguez
-date: November 2022
-geometry: "margin=1.25in"
+date: June 2023
+geometry: margin=1.25in
 fontsize: 11pt
 header-includes:
   - \input{tweaks.tex}
@@ -11,14 +11,15 @@ nocite: |
  @*
 ---
 
+
+
 ```{=html}
 <div class="lead"><small>
 This tutorial is an introduction to Stata emphasizing data management, tables and 
 graphics.  A PDF version is available <a href="tutorial.pdf">here</a>. The web 
 pages and PDF file were all  generated using the <code>markstat</code> command 
-to combine Markdown and Stata, as described <a href="/markstat">here</a>. You
-will find many applications in the computing logs for the statistics courses on 
-this site.</small></div>
+to combine Markdown and Stata, as described <a href="/markstat">here</a>. See
+also the computing logs for the statistics courses on this site.</small></div>
 ```
 
 1 Introduction {#s1 .first}
@@ -31,21 +32,18 @@ Stata is fast and easy to use. In this tutorial I start with a quick
 introduction and overview, and then discuss data management, tables
 of various types, statistical graphs, and Stata programming.
 
-<img src="icon17.png" align="left" style="padding:7px 7px 0 0"/> 
-The tutorial has been updated for version 17, but most of the discussion 
-applies to older versions. Version 17 introduced new commands for producing 
-customizable tables, which are discussed in a new Section 3. Version 16 
-introduced frames, which allow keeping multiple datasets in memory, as 
-noted in Section 2.6. Version 15 included, among many new features, 
-graph color transparency or opacity, which we’ll use in Section 4.3. 
-Version 14 added Unicode support, which will come handy when we discuss 
-multilingual labels in Section 2.3.
+<img src="icon18.png" align="left" style="padding:7px 7px 0 0"/> 
+The tutorial has been updated for version 18, but most of the discussion 
+applies to older versions as well. An important exception is Section 3 on Stata 
+Tables,  which describes a set a commands for producing customizable tables 
+introduced in version 17, with a new command in version 18. A few additional
+features added in recent versions will be noted along the way.
 
 ## 1.1 A Quick Tour of Stata {#s11}
 
-Stata is available for Windows, Unix, and Mac computers. This tutorial was 
-created using the Windows version, but most of the contents applies to the
-other platforms as well. There are three editions: (1) Stata/BE, the basic
+Stata is available for Windows, Mac, and Unix computers. This tutorial was 
+created using the Windows version, but all the code shown here works in all 
+three platforms. There are three editions: (1) Stata/BE, the basic
 edition (formerly intercooled), suitable for mid-size datasets with up to
 2048 variables, (2) Stata/SE, the standard edition (formerly special edition),
 it can handle up to 32,766 variables as well as longer strings and matrices,
@@ -63,8 +61,8 @@ All of these versions can read each other's files within their size limits.
 When Stata starts up you see five docked windows, initially arranged as
 shown in the figure below.
 
-<img src="stata17.png" class="img-responsive center-block"/>
-\includegraphics[width=\linewidth]{stata17.png}
+<img src="stata18.png" class="img-responsive center-block"/>
+\includegraphics[width=\linewidth]{stata18.png}
 
 The window labeled *Command* is where you type your commands. Stata then
 shows the results in the larger window immediately above, called
@@ -212,7 +210,7 @@ scatter plot using the `graph` command, which has a myriad of
 subcommands and options, some of which we describe in Section 4.
 
     graph twoway scatter lexp gnppc
-    graph export scatter.png, width(500) replace
+    graph export scatter.png, width(550) replace
 
 ![](scatter.png){.img-responsive .center-block}
 
@@ -284,7 +282,7 @@ different types of `twoway` plots, as explained in more detail in
 Section 4. Try the command
 
     graph twoway (scatter lexp loggnppc) (lfit lexp loggnppc)
-    graph export fit.png, width(500) replace
+    graph export fit.png, width(550) replace
 
 ![](fit.png){.img-responsive .center-block}
 
@@ -339,24 +337,14 @@ recommendations.
 
 ### 1.2.1 Create a Project Directory
 
-Stata reads and saves data from the working directory, usually
-`C:\DATA`, unless you specify otherwise. You can change directory using
-the command `cd [drive:]directory_name`, and print the (name of the)
-working directory using `pwd`, type `help cd` for details. I recommend
-that you create a separate directory for each course or research project
-you are involved in, and start your Stata session by changing to that
+Stata reads and saves data from the current working directory, which
+you can display using the command `pwd`, short for print working directory.
+You can change directory using the command `cd` *`directory_name`*, 
+where the directory name follows the conventions of your operating system,
+including an optional drive letter on Windows. Type `help cd` to learn more.
+I recommend that you create a separate directory for each course or research 
+project you are involved in, and start your Stata session by changing to that
 directory.
-
-Stata understands nested directory structures and doesn't care if you
-use `\` or `/` to separate directories. Versions 9 and later also
-understand the double slash used in Windows to refer to a computer, so
-you can `cd \\server\shares\research\myProject` to access a shared project
-folder. An alternative approach, which also works in earlier versions,
-is to use Windows explorer to assign a drive letter to the project
-folder, for example assign `P:` to `\\server\shares\research\myProject` 
-and then in Stata use `cd p:`. Alternatively, you may assign `R:` to
-`\\server\shares\research` and then use `cd R:\myProject`, a more
-convenient solution if you work in several projects.
 
 Stata has other commands for interacting with the operating system,
 including `mkdir` to create a directory, `dir` to list the names of the
@@ -525,9 +513,9 @@ that require explanation.
 
 ``` 
 // A Quick Tour of Stata
-// Germán Rodríguez - Fall 2021
+// Germán Rodríguez - Spring 2023
 
-version 17
+version 18
 clear
 capture log close
 log using QuickTour, text replace
@@ -544,7 +532,7 @@ list country gnppc if missing(gnppc)
 graph twoway scatter lexp gnppc, ///
   title(Life Expectancy and GNP ) xtitle(GNP per capita)
 // save the graph in PNG format
-graph export scatter.png, width(400) replace   
+graph export scatter.png, width(550) replace   
 gen loggnppc = log(gnppc)
 regress lexp loggnppc
 
@@ -552,18 +540,18 @@ predict plexp
 
 graph twoway (scatter lexp loggnppc) (lfit lexp loggnppc) ///
 	,  title(Life Expectancy and GNP) xtitle(log GNP per capita)
-graph export fit.png, width(400) replace
+graph export fit.png, width(550) replace
 
 list country lexp plexp if lexp < 55, clean
 list gnppc loggnppc lexp plexp if country == "United States", clean
 log close
 ```
 
-We start the do file by specifying the version of Stata we are using, in
-this case 17. This helps ensure that future versions of Stata will
+We start the do file by specifying the version of Stata that we are using, 
+in this case 18. This helps ensure that future versions of Stata will
 continue to interpret the commands correctly, even if Stata has changed,
 see `help version` for details. (The previous version of this file read
-version 16, and I could have left that in place to run under version
+version 17, and I could have left that in place to run under version
 control; the results would be the same because none of the commands used
 in this quick tour has changed.)
 
@@ -630,7 +618,7 @@ We now describe each syntax element:
 
 **`if`** *`exp`* and **`in`** *`range`*: 
 : As we have seen, a command's action can be restricted to a subset of
-  the data by specifying a logical condition that evaluates to true of
+  the data by specifying a logical condition that evaluates to true or
   false, such as `lexp < 55`. Relational operators are &lt;, &lt;=,
   ==, &gt;= and &gt;, and logical negation is expressed using `!` or
   `~`, as we will see in Section 2.
@@ -694,50 +682,51 @@ to mention comparisons with other packages such as SAS and SPSS.
 
 ### 1.3.2 Manuals and Books
 
-<img src="stata17doc.png" align="left" class="img-responsive pull-left" style="padding-right:14px">
+<img src="docs18.png" align="left" class="img-responsive pull-left" style="padding-right:14px">
 The Stata documentation has been growing with each version and now 
-consists of 31 volumes with more than 17,000 pages, all available in PDF 
+consists of 33 volumes with more than 18,000 pages, all available in PDF 
 format with your copy of Stata. 
-Here is a list, with italics indicating a new manual in Stata 17.
-The basic documentation consists of a Base Reference Manual,
-separate volumes on Data Management, Graphics, *Customizable Tables and
-Collected Results*, Reporting and Functions; 
-a User's Guide, an Index, and Getting Started with Stata, which 
-has platform-specific versions for Windows, Mac and Unix. 
+Here is a list, with italics indicating two new and one renamed manual in 
+Stata 18. The basic documentation consists of a Base Reference Manual,
+separate volumes on Data Management, Graphics, Customizable Tables and
+Collected Results, Reporting, and Functions; a User's Guide, an Index, and 
+Getting Started with Stata, which has platform-specific versions for 
+Windows, Mac and Unix. 
 Some statistical subjects that may be important to you are described in
-nineteen separate manuals: Bayesian Analysis, Choice Models, 
-Dynamic Stochastic General Equilibrium Models, Extended Regression Models, 
-Finite Mixture Models, Item Response Theory, Lasso, 
-Longitudinal Data/Panel Data, Meta Analysis, Multilevel Mixed Effects, 
-Multiple Imputation, Multivariate Statistics; Power, Precision and Sample Size;
-Spatial Autoregressive Models, Structural Equation Modeling, Survey Data, 
-Survival Analysis, Times Series, and Treatment Effects. 
+21 separate manuals: *Adaptive Designs: Group Sequential Trials*,
+Bayesian Analysis, *Bayesian Model Averaging*,  *Causal Inference and 
+Treatment-Effects Estimation*, Choice Models,  Dynamic Stochastic General 
+Equilibrium Models, Extended Regression Models, Finite Mixture Models, 
+Item Response Theory, Lasso, Longitudinal Data/Panel Data, Meta Analysis, 
+Multilevel Mixed Effects, Multiple Imputation, Multivariate Statistics; 
+Power, Precision and Sample Size; Spatial Autoregressive Models, Structural 
+Equation Modeling, Survey Data, Survival Analysis, and Time Series. 
 Additional volumes of interest to programmers, particularly those seeking to 
 extend Stata's capabilities, are manuals on Programming and on 
-Mata, Stata's matrix programming language.
+Mata, Stata's matrix programming language. You can access all of these manuals 
+from <https://www.stata.com/features/documentation/> or from Stata.
 
-A good introduction to Stata is Alan C. Acock's *A Gentle Introduction
-to Stata*, now in its 6th edition.
-One of my favorite statistical modeling books is
-Scott Long and Jeremy Freese's *Regression Models for Categorical Dependent 
-Variables Using Stata* (3rd edition); 
-Section 2.10 of this book is a set of recommended practices that should be 
-read and followed faithfully by every aspiring Stata data analyst. 
-Another book I like is Michael Mitchell's excellent *A Visual Guide to Stata 
-Graphics*, which was written specially to introduce the new graphs in version 8 
-and is now in its 4th edition. Two useful (but more specialized) references
-written by the developers of Stata are *An Introduction to Survival
-Analysis Using Stata* (revised 3rd edition), by Mario Cleves, William Gould
-and Julia Marchenko, and *Maximum Likelihood Estimation with Stata* (4th edition) 
-by William Gould, Jeffrey Pitblado, and Brian Poi. 
+A good introduction to Stata is Alan C. Acock's *A Gentle Introduction to 
+Stata*, now in a revised 6th edition. One of my favorite statistical modeling 
+books is Scott Long and Jeremy Freese's *Regression Models for Categorical 
+Dependent Variables Using Stata* (3rd edition); Section 2.10 of this book is a 
+set of recommended practices that should be read and followed faithfully by 
+every aspiring Stata data analyst. Another book I like is Michael Mitchell's 
+excellent *A Visual Guide to Stata Graphics*, which was written specially to 
+introduce the new graphs in version 8 and is now in its 4th edition. Two useful 
+(but more specialized) references written by the developers of Stata are *An 
+Introduction to Survival Analysis Using Stata* (revised 3rd edition), by Mario 
+Cleves, William Gould and Julia Marchenko, and *Maximum Likelihood Estimation 
+with Stata* (4th edition) by William Gould, Jeffrey Pitblado, and Brian Poi. 
 Readers interested in programming Stata will find Christopher F. Baum's 
-*An Introduction to Stata Programming* (2nd edition) and 
-William Gould's *The Mata Book: A Book for Serious Programmers and Those 
-Who Want to Be* both invaluable.
+*An Introduction to Stata Programming* (2nd edition), and William Gould's 
+*The Mata Book: A Book for Serious Programmers and Those Who Want to Be*, 
+both invaluable.
 
 ```{=html}
 <p class="pull-right">Continue with <a href="dataManagement" class="btn btn-default">Data Management</a></p>
 ```
+
 2 Data Management {#s2 .first}
 ==================
 
@@ -1322,26 +1311,30 @@ Stata 16 introduced *frames*, which allow it to keep more than one
 dataset in memory at the same time. Consider a situation where you
 have household and individual data on separate files, both with a
 common household id, and need to combine them. In previous versions 
-of Stata you would have needed to `merge` the files. With Stata 16 
-you can store both datasets as frames, and *link* the household data 
-to each individual. There are many more applications, type `help frames` 
-to learn more.
+of Stata you would have needed to `merge` the files. Starting with 
+Stata 16  you can store both datasets as frames, and *link* the 
+household data to each individual. Stata 18 lets you save a set of frames
+in a single file with extension `.dtas`, the plural of `.dta`. You can
+then `use` that file to load the set of frames into memory. There are 
+many more applications of frames, type `help frames` to learn more. 
 
 ```{=html}
 <p class="pull-right">Continue with <a href="tables" class="btn btn-default">Tables</a></p>
 ```
+
 3 Stata Tables {#s3 .first}
 ===============
 
-Stata 17 introduced a new system for producing highly-customizable
-tables. At the heart of the system is a new `collect` command that 
-can be used to collect the results left behind by various Stata
-commands and present them in tables. It also introduced a new `table` 
-command that simplifies the process for many kinds of tabulations, 
-and later an `etable` command that specializes in tables of estimates. 
-In this tutorial we will touch briefly on all three commands.
-Stata 16 and earlier had a different `table` command with its own 
-syntax and features, still available under version control.
+Stata 17 introduced a new system for producing highly-customizable tables. 
+At the heart of the system is a new `collect` command that can be used to 
+collect the results left behind by various Stata commands and present them 
+in tables. It also introduced a new `table` command that simplifies the 
+process for many kinds of tabulations, and later an `etable` command that 
+specializes in tables of estimates.  Stata 18 added a `dtable` command to 
+easily produce tables of descriptive statistics. In this tutorial we will 
+touch briefly on all four commands. Stata 16 and earlier had a different 
+`table` command with its own  syntax and features, still available under 
+version control.
 
 ## 3.1 Frequency Tables
 
@@ -1397,6 +1390,7 @@ tables type `help table oneway`.
 
 To obtain a two-way table we specify a row and a column variable.
 The example below looks at contraceptive use by education groups.
+\pagebreak
 
 	table educg cuse, statistic(percent, across(cuse)) 		
 
@@ -1483,8 +1477,34 @@ other statistics, such as the median, quartiles, standard
 deviation or variance. For a full list of the statistics 
 available type  `help table_summary##stat`. 
 An interesting "statistic" is `fvproportion`, which gives 
-relative frequencies for a  factor or categorical variable, 
-as shown in the next section.
+relative frequencies for a  factor or categorical variable.
+
+It is possible to include two (or more) statistics in the same table. Here is
+an example showing the mean and standard deviation of years of education
+by age groups and area of residence.
+
+	table ageg area, statistic(mean educ) statistic(sd educ) ///
+	  nformat(%5.2f) sformat((%s) sd) style(table-tab2)
+	  
+Type just the first line first to see all the defaults. The second line adds
+some customization. We use our old friend `nformat()` to display the statistics
+with just two decimals. We also use `sformat()` to print the standard deviation
+in parentheses, specifying `sd` to ensure that this format applies only to that
+statistic.
+
+Why two kinds of formats?  All numeric output is first converted to a string,
+using an `nformat` if any.  Then that string is displayed using an `sformat`
+if any.  So a standard deviation of 9.4148 becomes "9.41" using the numeric
+format `%5.2f`, and is displayed as "(9.41)" using the string format `(%s)`.
+
+Finally we use a built-in style called `table-tab2` to hide the labels for the
+statistics and add some space between the age groups.  To learn more about
+the available styles type `help Predefined styles`.
+
+To learn more about the `table` command, and its many options, including the
+`command` option that lets you run any Stata command and collect its results,
+type `help table`.
+
 
 ### 3.2.2 Descriptive Statistics: Table 1
 
@@ -1493,60 +1513,53 @@ statistics for a number of variables, using the mean
 and standard deviation for numeric or continuous variables,
 and relative frequencies for categorical or factor variables,
 frequently within categories of another variable of interest.
-Sometimes this is called "Table 1". The `table` command
-makes it easy to produce this type of table, and even has
-a special style for it.
+Sometimes this is called "Table 1". The `table` command can
+produce this type of table, but the `dtable` command added in
+version 18 makes it very easy.
 
 Here is a table showing means and standard deviations for
 age and years of education, our two continuous variables,
-and the percent distribution for contraceptive use, all
-separately for urban and rural areas.
+and the frequency and percent distribution of contraceptive use, 
+all separately for urban and rural areas.
 
-	table (var) (area) ,  ///    
-		statistic(mean age educ) statistic(sd age educ) ///
-		statistic(fvpercent cuse) ///
-		nformat(%5.2f mean sd) nformat(%5.1f fvpercent) ///
-		sformat("(%s)" sd) sformat("%s%%" fvpercent) ///
-		style(table-1)
+	dtable age educ i.cuse, by(area, test)
+	
+As you can see, all we need to do is list the variables to be described,
+using the `i.` prefix for factor variables. The `by()` option specifies a
+classification variable, with the suboption `test` to request a test of
+differences across that variable, based on regression or Pearson's statistic
+as indicated in the notes. That's quite a bit of work with little effort on
+our part.
 
-We specify the rows using the keyword `var`, which refers to
-the variables in the `statistic` options, and the columns 
-using `area`. We then request two statistics for our
-continuous variables, the `mean` and the `sd`, and
-one for our categorical variable, the `fvpercent`.
-Note that each `statistic` may list more than one variable.
+We see that the sample has a few more urban than rural women, and that
+urban women are younger, more educated, and more likely to use contraception
+(particularly efficient methods) than rural women. Moreover, all three 
+differences are highly significant. 
 
-To control the number of decimals printed we use our old friend
-`nformat`. If we wanted just one decimal for all numeric results
-we could say `nformat(%5.1f)`. In this case we want two decimals 
-for mean and standard deviation, but just one for percents, 
-so we use two numeric formats, `nformat(%5.2f mean sd)` to
-target the former and `nformat(%5.1f fvpercent)` for the latter.
+The sample statististics showing the urban/rural split can be omitted using the
+`nosample` option. You can also select which statistics to calculate and where 
+to place them using the `sample` option, type `help dtable##sample` for details.
 
-To distinguish mean and standard deviations in the output we 
-enclose the latter in parentheses using an `sformat`. Note the 
-addition of `sd`, so this string format applies only to that statistic. 
-Just for fun we add a `%` symbol to the percents using another 
-`sformat`, this time specifying `fvpercent` as the target. 
-(If you are puzzled by the `%s%%` format, note that
-`%s` is the placeholder for the string, and that to append 
-a `%` symbol we need to escape it using `%%`.)
+There is a `continuous` option to specify the statistics and/or tests to
+use for one or more continuous variables. For example if you wanted to use
+the median and interquartile range as descriptive statistics and the 
+Kruskal-Wallis rank test for education you could use the option 
+`continuous(educ, stat(median iqr) test(kwallis))`. Omitting the variable 
+name would apply these choices to all continuous variables. To see a list
+of all the statistics and tests available for continuous variables type 
+`help dtable##cstats` and `help dtable##ctests`.  
 
-Why two kinds of formats? All numeric output is first converted
-to a string, using an `nformat` if any. Then that string is
-displayed using an `sformat` if any. So a standard deviation
-of 9.4148 becomes "9.41" (using the numeric format `%5.2f`) 
-and is displayed as "(9.41)" (using the string format `(%s)`).
+There is an equivalent `factor` option to specify the statistics and tests
+to be used for factor variables. For example you can use Fisher's exact test,
+or a test based on ordinal association, such as Kendall's $\tau$ or Goodman
+and Kruskal's gamma. Type `help dtable##fstats` and `help dtable##ftests` for
+a full list of statistics and tests available for factor variables.
 
-Finally we use the built-in style `table-1`, which provides
-a more compact layout for the results for factor variables
-and a few other tweaks. Try running the table without this
-option to appreciate what it does. For more information about
-styles type `help Predefined styles`. 
+The `dtable` has a large number of options, including several that control
+table styles. The command creates its own collection called `DTable`, which 
+allows further customization using `collect` commands.  To learn more type 
+`help dtable`.
 
-To learn more about the `table` command and its many options, 
-including the `command` option that lets you run any Stata
-command and collect its results, type `help table`.
 
 ## 3.3 Tables of Estimates
 
@@ -1554,7 +1567,7 @@ We now turn our attention to tables presenting the results of one or more
 estimation commands.  We will use as an example simple linear regression
 with the `regress` command, but the same ideas apply to other models.
 We can collect the results ourselves using `collect` as a prefix of the
-`regress` command, or even the `command` option of `table`, but the new 
+`regress` command, or even the `command` option of `table`, but the  
 `etable` command makes things easier. 
 
 ### 3.3.1 A Single Regression
@@ -1762,6 +1775,7 @@ Type `collect export` to learn more.
 ```{=html}
 <p class="pull-right">Continue with <a href="graphics" class="btn btn-default">Graphics</a></p>
 ```
+
 4 Stata Graphics {#s4 .first}
 =================
 
@@ -1778,9 +1792,10 @@ interactively. I do not recomment this practice, however, because it
 conflicts with the goals of documenting and ensuring reproducibility of
 all the steps in your research. 
 
-All the graphs in this section (except where noted) use a custom scheme 
-with blue titles and a white background, but otherwise should look the
-same as your own graphs. I discuss schemes in Section 4.2.5.
+All the graphs in this section (except where noted) use the new default
+scheme in Stata 18, called `stcolor`.  If you use an earlier version your
+graphs will look a bit different, but the commands shown here will still
+work.  I discuss schemes in Section 4.2.5.
 
 ## 4.1 Scatterplots {#s41}
 
@@ -1908,7 +1923,7 @@ command is then
            , title("Fertility Decline by Social Setting") ///
              ytitle("Fertility Decline") ///
              legend(ring(0) pos(5) order(2 "linear fit" 1 "95% CI")) 
-	graph export fig31.png, width(500) replace			 
+	graph export fig31.png, width(550) replace			 
 
 The result is the graph shown at the beginning of this section. 
 
@@ -1932,7 +1947,7 @@ to see what else is available.)
 
 The idea is to plot life expectancy for white and black males over the
 20th century. Again, to whet your appetite I'll start by showing you the
-final product, and then we will build the graph bit by bit.
+final product, and then we will build the graph step by step.
 
 ![](fig32.png){.img-responsive .center-block width="70%"}
 
@@ -2052,14 +2067,14 @@ with `set scheme_name`. You can also redisplay the (last) graph using a
 different scheme with `graph display, scheme(scheme_name`).
 
 To see a list of available schemes type `graph query, schemes`. 
-Try `s2color` for screen graphs, `s1manual` for the style used in the Stata 
-manuals, and `economist` for the style used in *The Economist*. 
-Using the latter we obtain the graph shown at the start of this section.
+Try `stgcolor` for the scheme used in the Stata manuals, `stcolor_alt` for
+a scheme used by some Stata commands, and `economist` for the style used in 
+*The Economist*.  Using the latter we obtain the graph shown at the start of 
+this section.
 
 	graph display, scheme(economist)
-	graph export fig32.png, width(400) replace
+	graph export fig32.png, width(450) replace
 	
-
 ## 4.3 Other Graphs {#s43}
 
 I conclude the graphics section discussing bar graphs, box plots, and 
@@ -2089,7 +2104,7 @@ I also set the intensity of the color fill to 70%, which I think looks nicer.
 	sysuse citytemp, clear
 	graph bar tempjan tempjul, over(region) bargap(10) intensity(70) ///
 		title(Mean Temperature) legend(order(1 "January" 2 "July")) 
-	graph export bar.png, width(500) replace
+	graph export bar.png, width(550) replace
 
 ![](bar.png){.img-responsive .center-block}
 
@@ -2117,7 +2132,7 @@ Blue and Green (RGB) color components in a scale of 0 to 255:
 
 	graph box tempjan, over(region, sort(1)) box(1, color("51 102 204")) ///
 		title(Box Plots of January Temperature by Region)
-	graph export boxplot.png, width(500) replace
+	graph export boxplot.png, width(550) replace
 
 ![](boxplot.png){.img-responsive .center-block}
 
@@ -2158,7 +2173,7 @@ densities, and put it in the top right corner of the plot.
 		   title(January Temperatures by Region) ///
 		   ytitle("Smoothed density") ///
 		   legend(ring(0) pos(2) col(1) order(2 "NC" 1 "NE" 3 "S" 4 "W")) 	
-	graph export kernel.png, width(500) replace
+	graph export kernel.png, width(550) replace
  
 ![](kernel.png){.img-responsive .center-block}
 
@@ -2212,6 +2227,7 @@ menu.
 ```{=html}
 <p class="pull-right">Continue with <a href="programming" class="btn btn-default">Programming</a></p>
 ```
+
 5 Programming Stata {#s5 .first}
 ===================
 
@@ -2394,22 +2410,23 @@ name ends.)
 
 I suggest you avoid global macros because of the potential for name
 conflicts. A useful application, however, is to map the function keys on
-your keyboard. If you work on a shared network folder with a long name
-try something like this
+your keyboard. If you work with a repository on GitHub, for example, try
+something like this
 
-``` 
-global F5 \\server\shared\research\project\subproject\ 
-```
+`global F5 https://raw.githubusercontent.com/`*`username`*`/`*`repositoryname`*`/main`
 
-Then when you hit F5 Stata will substitute the full name. And your *do*
-files can use commands like `do ${F5}dofile`. (We need the braces to
-indicate that the macro is called `F5`, not `F5dofile`.)
+Then when you hit F5 Stata will substitute the full name. And you can 
+execute a do file in the repository using `do $F5/`*`dofilename`*. (The
+use of a `/` makes it clear where the macro name ends, and we just append
+the name of the do file.)
 
 Obviously you don't want to type this macro each time you use Stata.
 Solution? Enter it in your `profile.do` file, a set of commands that is
-executed each time you run Stata. Your profile is best stored in Stata's
-start-up directory, usually `C:\data`. Type `help profilew` to learn
-more.
+executed each time you run Stata. 
+
+To learn where to store your profile type `help profile` and then follow
+the link for your operating system, as there are some differences between
+Windows, Mac and Unix computers.
 
 ### 5.1.4 More on Macros
 
@@ -2605,7 +2622,7 @@ foreach year of numlist 1980 1985 1995 {
 ```
 
 Of course you would do something more interesting than just print the
-years. The numlist could be specified as `1 2 3`, or `1/5` (meaning 1 2
+years. A numlist may be specified as `1 2 3`, or `1/5` (meaning 1 2
 3 4 5), or `1(2)7` (count from 1 to 7 in steps of 2 to get 1 3 5 7);
 type `help numlist` for more examples.
 
@@ -3072,7 +3089,7 @@ gets passed to our function, which passes it along to `gen`.
 ### 5.3.7 A Coale-McNeil Fit
 
 We are ready to reveal how the initial plot was produced. The data are
-available in a Stata file in the demography section of my website, which
+available in a Stata file in the datasets section of my website, which
 has counts of ever married and single women by age. We compute the observed
 proportion married, compute fitted values based on the estimates in
 Rodríguez and Trussell (1980), and plot the results. It's all done in a
@@ -3085,7 +3102,7 @@ handful of lines
 	twoway (scatter obs agem) (line fit agem), ///
 		title(Proportions Married by Age) subtitle(Colombia 1976) ///
 		ytitle(Proportion married) xtitle(age)
-	graph export cchhnup.png, 	width(500) replace
+	graph export cohhnup.png, 	width(550) replace
 
 The actual estimation can be implemented using Stata's maximum
 likelihood procedures, but that's a story for another day.

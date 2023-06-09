@@ -2,12 +2,18 @@
 title: Stata Tutorial 
 author: Germán Rodríguez
 date: June 2023
-geometry: margin=1.25in
-fontsize: 11pt
-header-includes:
-  - \input{tweaks.tex}
 bibliography: tutorial.bib
 nocite: |
  @*
 ---
+
+<style>
+div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+</style>
+
+References
+==========
 

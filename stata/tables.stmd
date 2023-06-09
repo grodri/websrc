@@ -2,15 +2,16 @@
 3 Stata Tables {#s3 .first}
 ===============
 
-Stata 17 introduced a new system for producing highly-customizable
-tables. At the heart of the system is a new `collect` command that 
-can be used to collect the results left behind by various Stata
-commands and present them in tables. It also introduced a new `table` 
-command that simplifies the process for many kinds of tabulations, 
-and later an `etable` command that specializes in tables of estimates. 
-In this tutorial we will touch briefly on all three commands.
-Stata 16 and earlier had a different `table` command with its own 
-syntax and features, still available under version control.
+Stata 17 introduced a new system for producing highly-customizable tables. 
+At the heart of the system is a new `collect` command that can be used to 
+collect the results left behind by various Stata commands and present them 
+in tables. It also introduced a new `table` command that simplifies the 
+process for many kinds of tabulations, and later an `etable` command that 
+specializes in tables of estimates.  Stata 18 added a `dtable` command to 
+easily produce tables of descriptive statistics. In this tutorial we will 
+touch briefly on all four commands. Stata 16 and earlier had a different 
+`table` command with its own  syntax and features, still available under 
+version control.
 
 ## 3.1 Frequency Tables
 
@@ -152,8 +153,34 @@ other statistics, such as the median, quartiles, standard
 deviation or variance. For a full list of the statistics 
 available type  `help table_summary##stat`. 
 An interesting "statistic" is `fvproportion`, which gives 
-relative frequencies for a  factor or categorical variable, 
-as shown in the next section.
+relative frequencies for a  factor or categorical variable.
+
+It is possible to include two (or more) statistics in the same table. Here is
+an example showing the mean and standard deviation of years of education
+by age groups and area of residence.
+
+	table ageg area, statistic(mean educ) statistic(sd educ) ///
+	  nformat(%5.2f) sformat((%s) sd) style(table-tab2)
+	  
+Type just the first line first to see all the defaults. The second line adds
+some customization. We use our old friend `nformat()` to display the statistics
+with just two decimals. We also use `sformat()` to print the standard deviation
+in parentheses, specifying `sd` to ensure that this format applies only to that
+statistic.
+
+Why two kinds of formats?  All numeric output is first converted to a string,
+using an `nformat` if any.  Then that string is displayed using an `sformat`
+if any.  So a standard deviation of 9.4148 becomes "9.41" using the numeric
+format `%5.2f`, and is displayed as "(9.41)" using the string format `(%s)`.
+
+Finally we use a built-in style called `table-tab2` to hide the labels for the
+statistics and add some space between the age groups.  To learn more about
+the available styles type `help Predefined styles`.
+
+To learn more about the `table` command, and its many options, including the
+`command` option that lets you run any Stata command and collect its results,
+type `help table`.
+
 
 ### 3.2.2 Descriptive Statistics: Table 1
 
@@ -162,68 +189,92 @@ statistics for a number of variables, using the mean
 and standard deviation for numeric or continuous variables,
 and relative frequencies for categorical or factor variables,
 frequently within categories of another variable of interest.
-Sometimes this is called "Table 1". The `table` command
-makes it easy to produce this type of table, and even has
-a special style for it.
+Sometimes this is called "Table 1". The `table` command can
+produce this type of table, but the `dtable` command added in
+version 18 makes it very easy.
 
 Here is a table showing means and standard deviations for
 age and years of education, our two continuous variables,
-and the percent distribution for contraceptive use, all
-separately for urban and rural areas.
+and the frequency and percent distribution of contraceptive use, 
+all separately for urban and rural areas.
 
-	table (var) (area) ,  ///    
-		statistic(mean age educ) statistic(sd age educ) ///
-		statistic(fvpercent cuse) ///
-		nformat(%5.2f mean sd) nformat(%5.1f fvpercent) ///
-		sformat("(%s)" sd) sformat("%s%%" fvpercent) ///
-		style(table-1)
+	dtable age educ i.cuse, by(area, test)
+	
+As you can see, all we need to do is list the variables to be described,
+using the `i.` prefix for factor variables. The `by()` option specifies a
+classification variable, with the suboption `test` to request a test of
+differences across that variable, based on regression or Pearson's statistic
+as indicated in the notes. That's quite a bit of work with little effort on
+our part.
 
-We specify the rows using the keyword `var`, which refers to
-the variables in the `statistic` options, and the columns 
-using `area`. We then request two statistics for our
-continuous variables, the `mean` and the `sd`, and
-one for our categorical variable, the `fvpercent`.
-Note that each `statistic` may list more than one variable.
+We see that the sample has a few more urban than rural women, and that
+urban women are younger, more educated, and more likely to use contraception
+(particularly efficient methods) than rural women. Moreover, all three 
+differences are highly significant. 
 
-To control the number of decimals printed we use our old friend
-`nformat`. If we wanted just one decimal for all numeric results
-we could say `nformat(%5.1f)`. In this case we want two decimals 
-for mean and standard deviation, but just one for percents, 
-so we use two numeric formats, `nformat(%5.2f mean sd)` to
-target the former and `nformat(%5.1f fvpercent)` for the latter.
+The sample statististics showing the urban/rural split can be omitted using the
+`nosample` option. You can also select which statistics to calculate and where 
+to place them using the `sample` option, type `help dtable##sample` for details.
 
-To distinguish mean and standard deviations in the output we 
-enclose the latter in parentheses using an `sformat`. Note the 
-addition of `sd`, so this string format applies only to that statistic. 
-Just for fun we add a `%` symbol to the percents using another 
-`sformat`, this time specifying `fvpercent` as the target. 
-(If you are puzzled by the `%s%%` format, note that
-`%s` is the placeholder for the string, and that to append 
-a `%` symbol we need to escape it using `%%`.)
+There is a `continuous` option to specify the statistics and/or tests to
+use for one or more continuous variables. For example if you wanted to use
+the median and interquartile range as descriptive statistics and the 
+Kruskal-Wallis rank test for education you could use the option 
+`continuous(educ, stat(median iqr) test(kwallis))`. Omitting the variable 
+name would apply these choices to all continuous variables. To see a list
+of all the statistics and tests available for continuous variables type 
+`help dtable##cstats` and `help dtable##ctests`.  
 
-Why two kinds of formats? All numeric output is first converted
-to a string, using an `nformat` if any. Then that string is
-displayed using an `sformat` if any. So a standard deviation
-of 9.4148 becomes "9.41" (using the numeric format `%5.2f`) 
-and is displayed as "(9.41)" (using the string format `(%s)`).
+There is an equivalent `factor` option to specify the statistics and tests
+to be used for factor variables. For example you can use Fisher's exact test,
+or a test based on ordinal association, such as Kendall's tau or Goodman
+and Kruskal's gamma. Type `help dtable##fstats` and `help dtable##ftests` for
+a full list of statistics and tests available for factor variables.
 
-Finally we use the built-in style `table-1`, which provides
-a more compact layout for the results for factor variables
-and a few other tweaks. Try running the table without this
-option to appreciate what it does. For more information about
-styles type `help Predefined styles`. 
+The `dtable` command has a large number of options, including several that 
+control table styles. The command creates its own collection called `DTable`, 
+which allows further customization using `collect` commands.  To learn more 
+type `help dtable`.
 
-To learn more about the `table` command and its many options, 
-including the `command` option that lets you run any Stata
-command and collect its results, type `help table`.
+## 3.2.3 An Alternative Table 1
+
+The code below shows an alternative "table 1" that can be obtained with the 
+`table` command in both Stata 17 and 18. It shows sample sizes, mean and 
+standard deviations on separate lines for continuous variables, and just 
+percents for factor variables, but no significance tests.
+
+	gen N = 1
+	table (var) (area) ,  ///
+	  stat(count N)                         /// sample
+	  stat(mean age educ) stat(sd age educ) /// continuous
+	  stat(fvpercent cuse)                  /// factor
+	  nformat(%5.2f mean sd) nformat(%5.1f fvpercent) ///
+	  sformat((%s) sd) sformat(%s%% fvpercent)  style(table-1) 
+	
+We first create a new variable called `N` to obtain sample sizes. We specify the
+table rows using `var`, which refers to the variables in the `statistics` option,
+and the columns using `area`. We then request the `count` for the sample size,
+the `mean` and `sd` for our continuous variables, and the `fvpercent` for our
+factor variable.  
+
+To control the number of decimals printed we use our old friend `nformat`, 
+specifying 2 decimals for the mean and standard deviation, but just one for 
+percents. To enclose the standard deviations in parentheses and append a `%`
+sign to the percents we use `sformat`. (If you are puzzled by the `%s%%` format,
+note that `%s` is the placeholder for the string and that to append a `%` symbol
+we need to escape it using `%%`.)
+
+Finally we use the built-in style `table-1`, which provides a more compact
+layout for factor variables and a few other tweaks. Try running the table
+without the style to see what it does.
 
 ## 3.3 Tables of Estimates
 
 We now turn our attention to tables presenting the results of one or more
 estimation commands.  We will use as an example simple linear regression
 with the `regress` command, but the same ideas apply to other models.
-We can collect the results ourselves using `collect` as a prefix of the
-`regress` command, or even the `command` option of `table`, but the new 
+We could collect the results ourselves using `collect` as a prefix of the
+`regress` command, or even the `command` option of `table`, but the  
 `etable` command makes things easier. 
 
 ### 3.3.1 A Single Regression
@@ -241,30 +292,27 @@ The option `showstars` shows the usual significance stars, and
 `showstarsnote` adds an explanatory note. The stars may be customized 
 using the `stars()` option, type `help table##starspec` to see how.
 
+
 ### 3.3.2 Comparing Two Regressions
 
 To compare two or more regressions all we have to do is save the results of
 each one using `estimates store` (before they are overwriten by the next
 regression) and then pass the list of stored estimates to `etable`.
 
-Let us compare the fuel efficiency of foreign and domestic cars before and 
-after adjusting for weight. Our measure of efficiency will be "gallons per 
-100 miles" or `gphm` rather than the usual `mpg`, because it has a more 
-linear relationship with weight. First we run and store the regressions:
-
 	gen gphm = 100/mpg
 	quietly regress gphm i.foreign
 	estimates store unadjusted
 	quietly regress gphm i.foreign weight
 	estimates store adjusted
-
-Next we build a table passing these estimates. We can get the defaults
-with `etable, estimates(unadjusted adjusted)`, but we will go beyond that.
-Consider the command:
-
 	etable, estimates(unadjusted adjusted) column(estimates) ///
 		cstat(_r_b) cstat(_r_z, sformat((%s))) ///
 		note(test statistic in parentheses) showstars showstarsnote
+
+Here we compare the efficiency of foreign and domestic cars before and after
+adjusting for weight. Our measure of efficiency is gallons per 100 miles or
+`gphm` rather than the usual `mpg`, because it has a more linear relationship
+with weight.  To get the defaults try `etable estimates(unadjusted adjusted)`.
+Here we added a couple of options.
 
 The option `column(estimates)` specifies that we want the columns to be
 labeled with the name of the estimates rather than the name of the
@@ -275,7 +323,7 @@ statistics to display. Type `help etable##cstat` to see a complete list.
 Here we selected the coefficient (`_r_b`) and the test statistic (`_r_z`).
 To make sure the test statistic is in parentheses we use the `sformat`
 option of `cstat` to specify `(%s)`, where `%s` is a placeholder for
-the string, just as we did earlier in Section 3.2.2. We also
+the string, just as we did earlier in Section 3.2.1. We also
 use the `note` option of `etable` to indicate exactly what's shown.
 
 There is also a `mstat` option (short for model statistics) that lets

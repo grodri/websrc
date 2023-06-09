@@ -15,9 +15,10 @@ interactively. I do not recomment this practice, however, because it
 conflicts with the goals of documenting and ensuring reproducibility of
 all the steps in your research. 
 
-All the graphs in this section (except where noted) use a custom scheme 
-with blue titles and a white background, but otherwise should look the
-same as your own graphs. I discuss schemes in Section 4.2.5.
+All the graphs in this section (except where noted) use the new default
+scheme in Stata 18, called `stcolor`.  If you use an earlier version your
+graphs will look a bit different, but the commands shown here will still
+work.  I discuss schemes in Section 4.2.5.
 
 ## 4.1 Scatterplots {#s41}
 
@@ -31,7 +32,7 @@ net-aware Stata type
 To whet your appetite, here's the plot that we will produce in this
 section:
 
-![](fig31.png){.img-responsive .center-block}
+![](twoway.png){.img-responsive .center-block}
 
 ### 4.1.1 A Simple Scatterplot
 
@@ -145,7 +146,7 @@ command is then
            , title("Fertility Decline by Social Setting") ///
              ytitle("Fertility Decline") ///
              legend(ring(0) pos(5) order(2 "linear fit" 1 "95% CI")) 
-	graph export fig31.png, width(500) replace			 
+	graph export twoway.png, width(550) replace			 
 
 The result is the graph shown at the beginning of this section. 
 
@@ -169,9 +170,9 @@ to see what else is available.)
 
 The idea is to plot life expectancy for white and black males over the
 20th century. Again, to whet your appetite I'll start by showing you the
-final product, and then we will build the graph bit by bit.
+final product, and then we will build the graph step by step.
 
-![](fig32.png){.img-responsive .center-block width="70%"}
+![](economist.png){.img-responsive .center-block}
 
 ### 4.2.1 A Simple Line Plot
 
@@ -289,14 +290,14 @@ with `set scheme_name`. You can also redisplay the (last) graph using a
 different scheme with `graph display, scheme(scheme_name`).
 
 To see a list of available schemes type `graph query, schemes`. 
-Try `s2color` for screen graphs, `s1manual` for the style used in the Stata 
-manuals, and `economist` for the style used in *The Economist*. 
-Using the latter we obtain the graph shown at the start of this section.
+Try `stgcolor` for the scheme used in the Stata manuals, `stcolor_alt` for
+a scheme used by some Stata commands, and `economist` for the style used in 
+*The Economist*.  Using the latter we obtain the graph shown at the start of 
+this section.
 
 	graph display, scheme(economist)
-	graph export fig32.png, width(400) replace
+	graph export economist.png, width(400) replace
 	
-
 ## 4.3 Other Graphs {#s43}
 
 I conclude the graphics section discussing bar graphs, box plots, and 
@@ -326,7 +327,7 @@ I also set the intensity of the color fill to 70%, which I think looks nicer.
 	sysuse citytemp, clear
 	graph bar tempjan tempjul, over(region) bargap(10) intensity(70) ///
 		title(Mean Temperature) legend(order(1 "January" 2 "July")) 
-	graph export bar.png, width(500) replace
+	graph export bar.png, width(550) replace
 
 ![](bar.png){.img-responsive .center-block}
 
@@ -354,7 +355,7 @@ Blue and Green (RGB) color components in a scale of 0 to 255:
 
 	graph box tempjan, over(region, sort(1)) box(1, color("51 102 204")) ///
 		title(Box Plots of January Temperature by Region)
-	graph export boxplot.png, width(500) replace
+	graph export boxplot.png, width(550) replace
 
 ![](boxplot.png){.img-responsive .center-block}
 
@@ -395,7 +396,7 @@ densities, and put it in the top right corner of the plot.
 		   title(January Temperatures by Region) ///
 		   ytitle("Smoothed density") ///
 		   legend(ring(0) pos(2) col(1) order(2 "NC" 1 "NE" 3 "S" 4 "W")) 	
-	graph export kernel.png, width(500) replace
+	graph export kernel.png, width(550) replace
  
 ![](kernel.png){.img-responsive .center-block}
 

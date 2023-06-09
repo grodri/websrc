@@ -181,22 +181,23 @@ name ends.)
 
 I suggest you avoid global macros because of the potential for name
 conflicts. A useful application, however, is to map the function keys on
-your keyboard. If you work on a shared network folder with a long name
-try something like this
+your keyboard. If you work with a repository on GitHub, for example, try
+something like this
 
-``` 
-global F5 \\server\shared\research\project\subproject\ 
-```
+`global F5 https://raw.githubusercontent.com/`*`username`*`/`*`repositoryname`*`/main`
 
-Then when you hit F5 Stata will substitute the full name. And your *do*
-files can use commands like `do ${F5}dofile`. (We need the braces to
-indicate that the macro is called `F5`, not `F5dofile`.)
+Then when you hit F5 Stata will substitute the full name. And you can 
+execute a do file in the repository using `do $F5/`*`dofilename`*. (The
+use of a `/` makes it clear where the macro name ends, and we just append
+the name of the do file.)
 
 Obviously you don't want to type this macro each time you use Stata.
 Solution? Enter it in your `profile.do` file, a set of commands that is
-executed each time you run Stata. Your profile is best stored in Stata's
-start-up directory, usually `C:\data`. Type `help profilew` to learn
-more.
+executed each time you run Stata. 
+
+To learn where to store your profile type `help profile` and then follow
+the link for your operating system, as there are some differences between
+Windows, Mac and Unix computers.
 
 ### 5.1.4 More on Macros
 
@@ -392,7 +393,7 @@ foreach year of numlist 1980 1985 1995 {
 ```
 
 Of course you would do something more interesting than just print the
-years. The numlist could be specified as `1 2 3`, or `1/5` (meaning 1 2
+years. A numlist may be specified as `1 2 3`, or `1/5` (meaning 1 2
 3 4 5), or `1(2)7` (count from 1 to 7 in steps of 2 to get 1 3 5 7);
 type `help numlist` for more examples.
 
@@ -592,7 +593,7 @@ end
 
 You will notice that I got rid of the `capture drop line`. I also
 used `display as text` to make sure we print using the text style.
-Another option is `display as error`, useful for error messages.
+For error messages you may want to use `display as error` instead.
 Type `help display` to learn more about this command.
 
 We are now ready to save the program as an `ado` file. Type
@@ -668,7 +669,7 @@ all with defaults. Here's a first cut at the command
 ``` 
 capture program drop pnupt
 program define pnupt
-	version  9.1
+	version 14
 	syntax varname, Generate(name) ///
 		[ Mean(real 25) Stdev(real 5) Pem(real 1) ]
 	// ... we don't do anything yet ...
@@ -859,7 +860,7 @@ gets passed to our function, which passes it along to `gen`.
 ### 5.3.7 A Coale-McNeil Fit
 
 We are ready to reveal how the initial plot was produced. The data are
-available in a Stata file in the demography section of my website, which
+available in a Stata file in the datasets section of my website, which
 has counts of ever married and single women by age. We compute the observed
 proportion married, compute fitted values based on the estimates in
 Rodríguez and Trussell (1980), and plot the results. It's all done in a
@@ -872,7 +873,7 @@ handful of lines
 	twoway (scatter obs agem) (line fit agem), ///
 		title(Proportions Married by Age) subtitle(Colombia 1976) ///
 		ytitle(Proportion married) xtitle(age)
-	graph export cchhnup.png, 	width(500) replace
+	graph export cohhnup.png, 	width(550) replace
 
 The actual estimation can be implemented using Stata's maximum
 likelihood procedures, but that's a story for another day.
@@ -950,13 +951,14 @@ learn about sersets (`help serset`). To provide a graphical user
 interface to your command try `help dialog programming`. It is also 
 possible to read and write text and binary files (see `help file`).
 
-The biggest omission is Mata, a full-fledged matrix programming language
+The biggest omission here is Mata, a full-fledged matrix programming language
 that was introduced in Version 9 of Stata. Mata is compiled to byte code,
 so it is much faster than Stata's classic ado programs. I find that the
 best way to write new Stata commands is to use classic ado for the user
 interface and Mata for the actual calculations.  If you are interested
 in learning Mata I strongly recommend Gould's (2018) *The Mata Book*.
 
-References
-==========
 
+```{=html}
+<p class="pull-right">Continue with <a href="references" class="btn btn-default">References</a></p>
+```
