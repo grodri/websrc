@@ -116,8 +116,8 @@ A unit value of $k$ means compounding anually, 12 means monthly, and 365 means
 daily. We could continue compounding every minute, or every second, but you can 
 see that our calculation is quickly approaching a limit. 
 From elementary calculus we know that as $k \rightarrow \infty$ our equation 
-becomes $P_2 = P_1 \exp\{10r\}$, and solving for $r$ gives r=\log(P_2/P_1)/10$,
-so the  limiting value is
+becomes $P_2 = P_1 \exp\{10r\}$, and solving for $r$ gives $r=\log(P_2/P_1)/10$,
+so the limiting value is
 	
 ```s
 	display "r=" log(ratio)/10
